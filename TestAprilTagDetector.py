@@ -13,18 +13,6 @@ print("[INFO] Loading image...")
 image = cv2.imread(args["image"])
 gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-# Define the AprilTags detector options and then detect the AprilTags in the input image
-print("[INFO] detecting AprilTags...")
-detector = apriltag.Detector()
-results = detector.detect(gray)
-print(f"[INFO] {len(results)} total AprilTags detected")
-
-# Approximate camera intrinsics for 1080p image [PLACEHOLDER]
-fx = 1000.0
-fy = 1000.0
-cx = 960.0   # 1920 / 2
-cy = 540.0   # 1080 / 2
-
 cameraMatrix = np.array([
     [fx,  0, cx],
     [0,  fy, cy],
@@ -42,6 +30,18 @@ objPoints = np.array([
     [ half, -half, 0],
     [-half, -half, 0]
 ], dtype=np.float32)
+
+# Define the AprilTags detector options and then detect the AprilTags in the input image
+print("[INFO] detecting AprilTags...")
+detector = apriltag.Detector()
+results = detector.detect(gray)
+print(f"[INFO] {len(results)} total AprilTags detected")
+
+# Approximate camera intrinsics for 1080p image [PLACEHOLDER]
+fx = 1000.0
+fy = 1000.0
+cx = 960.0   # 1920 / 2
+cy = 540.0   # 1080 / 2
 
 # Loop over the AprilTag detection results
 for r in results:
@@ -65,24 +65,19 @@ for r in results:
 	# Draw the tag family on the image
 	tagFamily = r.tag_family.decode("utf-8")
 	tagID = r.tag_id
-	print(tagID, type(tagID))
 	cv2.putText(image, str(tagID), (ptA[0], ptA[1] - 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 	print(f"[INFO] tag family: {tagFamily}")
 
 	# Estimate pose
 	imgPoints = np.array(r.corners, dtype=np.float32)
-	success, rvec, tvec = cv2.solvePnP(objPoints, imgPoints, cameraMatrix, distCoeffs, flags=cv2.SOLVEPNP_IPPE_SQUARE)
+	retval, rvecs, tvecs, reprojErrs = cv2.solvePnPGeneric(objectPoints=objPoints, imagePoints=imgPoints, cameraMatrix=cameraMatrix, distCoeffs=distCoeffs, flags=cv2.SOLVEPNP_IPPE_SQUARE)
 
-	if success:
-		print("Tag:", r.tag_id)
+	print("Number of candidate poses:", len(rvecs))
+	for i, (rvec, tvec, err) in enumerate(zip(rvecs, tvecs, reprojErrs)):
+		print(f"Solution {i}:")
 		print(" rvec:", rvec.ravel())
 		print(" tvec:", tvec.ravel())
-
-        # Convert to rotation matrix if needed
-		R, _ = cv2.Rodrigues(rvec)
-		print(" Rotation matrix:\n", R)
-	else:
-		print("Pose solve failed for tag:", r.tag_id)
+		print(" reprojection error:", err)
 
 # Show the output image after AprilTag detection
 cv2.imshow("Image", image)
