@@ -50,7 +50,7 @@ while True:
     if args["test"] is not None:
         for tag in Tags:
             # Extract the bounding box (x, y)-coordinates for the AprilTag and convert each of the (x, y)-coordinate pairs to integers
-            (ptA, ptB, ptC, ptD) = r.corners
+            (ptA, ptB, ptC, ptD) = tag.corners
             ptB = (int(ptB[0]), int(ptB[1]))
             ptC = (int(ptC[0]), int(ptC[1]))
             ptD = (int(ptD[0]), int(ptD[1]))
@@ -63,7 +63,7 @@ while True:
             cv2.line(frame, ptD, ptA, (0, 255, 0), 2)
 
             # Draw the center (x, y)-coordinates of the AprilTag
-            (cX, cY) = (int(r.center[0]), int(r.center[1]))
+            (cX, cY) = (int(tag.center[0]), int(tag.center[1]))
             cv2.circle(frame, (cX, cY), 5, (0, 0, 255), -1)
 
             # Draw the tag family on the image
