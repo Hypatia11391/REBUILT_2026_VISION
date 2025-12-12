@@ -41,8 +41,10 @@ objPoints = np.array([
 # Define the AprilTags detector options and then detect the AprilTags in the input image
 print("[INFO] detecting AprilTags...")
 detector = apriltag.Detector()
-results = detector.detect(gray)
+results = detector.detect(gray, estimate_tag_pose = True, camera_params = [fx, fy, cx, cy], tag_size = tag_size)
 print(f"[INFO] {len(results)} total AprilTags detected")
+
+print(results)
 
 # Loop over the AprilTag detection results
 for r in results:
@@ -68,17 +70,6 @@ for r in results:
 	tagID = r.tag_id
 	cv2.putText(image, str(tagID), (ptA[0], ptA[1] - 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 	print(f"[INFO] tag family: {tagFamily}")
-
-	# Estimate pose
-	imgPoints = np.array(r.corners, dtype=np.float32)
-	retval, rvecs, tvecs, reprojErrs = cv2.solvePnPGeneric(objectPoints=objPoints, imagePoints=imgPoints, cameraMatrix=cameraMatrix, distCoeffs=distCoeffs, flags=cv2.SOLVEPNP_IPPE_SQUARE)
-
-	print("Number of candidate poses:", len(rvecs))
-	for i, (rvec, tvec, err) in enumerate(zip(rvecs, tvecs, reprojErrs)):
-		print(f"Solution {i}:")
-		print(" rvec:", rvec.ravel())
-		print(" tvec:", tvec.ravel())
-		print(" reprojection error:", err)
 
 # Show the output image after AprilTag detection
 cv2.imshow("Image", image)

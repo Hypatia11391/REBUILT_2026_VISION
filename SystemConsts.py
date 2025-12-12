@@ -26,4 +26,4 @@ objPoints = np.array([
 ], dtype=np.float32)
 
 # Poses of all the tags in the arena by ID
-tagPoses = {0: np.zeros((2, 3), dtype = np.float)} # [PLACEHOLDER]
+tagPoses = {0: np.zeros((2, 3), dtype = np.float32)} # [PLACEHOLDER]
