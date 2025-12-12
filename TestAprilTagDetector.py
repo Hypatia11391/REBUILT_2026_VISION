@@ -11,7 +11,14 @@ args = vars(ap.parse_args())
 # Read the image and convert to grayscale.
 print("[INFO] Loading image...")
 image = cv2.imread(args["image"])
-gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+if len(image.shape) == 3:
+	gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+# Approximate camera intrinsics for 1080p image [PLACEHOLDER]
+fx = 1000.0
+fy = 1000.0
+cx = 960.0   # 1920 / 2
+cy = 540.0   # 1080 / 2
 
 cameraMatrix = np.array([
     [fx,  0, cx],
@@ -36,12 +43,6 @@ print("[INFO] detecting AprilTags...")
 detector = apriltag.Detector()
 results = detector.detect(gray)
 print(f"[INFO] {len(results)} total AprilTags detected")
-
-# Approximate camera intrinsics for 1080p image [PLACEHOLDER]
-fx = 1000.0
-fy = 1000.0
-cx = 960.0   # 1920 / 2
-cy = 540.0   # 1080 / 2
 
 # Loop over the AprilTag detection results
 for r in results:
