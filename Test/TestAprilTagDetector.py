@@ -42,7 +42,7 @@ objPoints = np.array([
 print("[INFO] detecting AprilTags...")
 detector = apriltag.Detector()
 results = detector.detect(gray, estimate_tag_pose = True, camera_params = [fx, fy, cx, cy], tag_size = tag_size)
-print(f"[INFO] {len(results)} total AprilTags detected")
+#print(f"[INFO] {len(results)} total AprilTags detected")
 
 print(results)
 

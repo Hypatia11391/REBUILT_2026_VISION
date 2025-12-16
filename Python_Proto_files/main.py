@@ -1,6 +1,9 @@
+# UNFINISHED
+
 import numpy as np
 import cv2
 import pupil_apriltags as aptag
+from scipy.spatial.transform import Rotation as R
 import argparse
 import VisionUtills
 import SystemConsts
@@ -75,6 +78,18 @@ while True:
             print(f"[INFO] tag family: {tagFamily}")
 
     # Convert each apriltag pose to a robot pose in global frame. (Use the apriltag poses by id stored in SystemConsts.tagPoses)
+    for tag in Tags:
+        # Pull the pose of the detected apriltag from SystemConsts.py
+        try:
+            poseTagGlobal = SystemConsts.tagPosesGlobal[tag.tag_id]
+        except:
+            if args["test"] is not None:
+                print("[ERROR] Non-valid Tag ID detected. Skipping to next tag")
+            continue
+
+        # Calculate a transformation matrix for the pose
+        tagRotGlobal = R.from_euler('zyx', [poseTagGlobal[3], poseTagGlobal[4], poseTagGlobal[5]]).as_matrix() # <------------- ToDo
+        TagGlobalMatrix = VisionUtills.make_transform()
 
     # Reject ridiculous poses (outside the arena, in the air, etc.)
 

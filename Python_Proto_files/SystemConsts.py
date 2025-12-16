@@ -26,4 +26,7 @@ objPoints = np.array([
 ], dtype=np.float32)
 
 # Poses of all the tags in the arena by ID
-tagPoses = {0: np.zeros((2, 3), dtype = np.float32)} # [PLACEHOLDER]
+tagPosesGlobal = {0: np.array([0, 0, 0, 0, 0, 0], dtype = np.float32)} # [PLACEHOLDER]
+
+# Pose of the camera with respect to the robot
+cameraPoseRobot = np.array([1, 1, 1, 0, 0, 0], dtype = np.float32) # [PLACEHOLDER]
