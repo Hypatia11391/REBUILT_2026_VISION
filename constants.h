@@ -13,8 +13,8 @@ namespace constants {
 
     // Define a datatype to hold camera info
     struct Camera {
-        float fx, fy, cx, cy;
-        float x, y, z, yaw, pitch, roll;
+        float fx, fy, cx, cy; // Intrinsics
+        float x, y, z, roll, pitch, yaw; // Pose relative to robot
     };
 
     // Define the tag size (in meters)
@@ -22,11 +22,11 @@ namespace constants {
 
     // Create an array of all the cameras attached to the Pi
     constexpr std::array<Camera, 2> Cameras = {{
-        {1000.f, 1000.f, 960.f, 540.f, 0.5, 0.5, 0.5, 0.f, 0.f, 0.f},
-        {1000.f, 1000.f, 960.f, 540.f, 0.f, 0.f, 0.f, 180.f, 0.f, 0.f}
+        /* camera 0 */ {1000.f, 1000.f, 960.f, 540.f, /* <--- intrinsics | pose ---> */ 0.5f, 0.5f, 0.5f, 0.f, 0.f, 0.f},
+        /* camera 1 */ {1000.f, 1000.f, 960.f, 540.f,  /* <--- intrinsics | pose ---> */ 0.f, 0.f, 0.f, 180.f, 0.f, 0.f}
     }};
 
-    // MUST be sorted by id in strictly increasing order
+    // MUST be sorted by id in strictly increasing order [IMPORTANT] <---------!!!!!!!!
     constexpr std::array<TagPose, 1> tagPosesGlobal = {{0, 1.f, 1.f, 1.f, 0.f, 0.f, 0.f}}; // [PLACEHOLDER]
 
     // Binary-search lookup by tag ID
@@ -35,7 +35,7 @@ namespace constants {
         std::size_t right = tagPosesGlobal.size();
 
         while (left < right) {
-            std::size_t mid = (left + right)/2;
+            std::size_t mid = (left + right) / 2;
             int midID = tagPosesGlobal[mid].tagID;
 
             if (midID == id) {
@@ -47,7 +47,7 @@ namespace constants {
                 right = mid;
             }
         }
-
+        
         return std::nullopt;
     }
 }
