@@ -13,7 +13,7 @@
 
 #include "constants.h"
 #include "CameraDevice.h"
-#include "AprilTagEstimator.h"
+//#include "AprilTagEstimator.h" // <----- Error. TagPoseEstimator? Fix syntax.
 
 int main() {
     using namespace std::chrono;
@@ -35,7 +35,7 @@ int main() {
     AprilTagDetector detector;
 
     // Create AprilTag pose estimators
-    AprilTagEstimator est0(
+    TagPoseEstimator est0(
         constants::Cameras[0].fx,
         constants::Cameras[0].fy,
         constants::Cameras[0].cx,
@@ -43,7 +43,7 @@ int main() {
         constants::tag_size
     );
 
-    AprilTagEstimator est1(
+    TagPoseEstimator est1( // <---- Changed from AprilTagEstimator due to probably synstax error
         constants::Cameras[1].fx,
         constants::Cameras[1].fy,
         constants::Cameras[1].cx,
@@ -54,26 +54,27 @@ int main() {
     // Processing loop
     while (true) {
 
-        // Grab frames and timestamps
+        // Initialize frame and timestamp variables
         cv::Mat frame0, frame1;
         steady_clock::time_point ts0, ts1;
 
-        if (!cam0.read(frame0, ts0)) {
+        // Grab frames and timestamps
+        if (!cam0.read(frame0, ts0)) { // <--- probably sysntax error. Read method undefined? Or is it built in? Probably need waitForFrame.
             std::cerr << "Failed to read frame from camera 0" << std::endl;
             continue;
         }
 
-        if (!cam1.read(frame1, ts1)) {
+        if (!cam1.read(frame1, ts1)) { // <--- probably sysntax error. Read method undefined? Or is it built in? Probably need waitForFrame.
             std::cerr << "Failed to read frame from camera 1" << std::endl;
             continue;
         }
 
         // Detect AprilTags in each frame
-        auto detections0 = est0.detect(frame0);
+        auto detections0 = est0.detect(frame0); // <--- possible sysntax error? detect method not explicitly called by the detector class. Called by the TagPoseEstimator type class?
         auto detections1 = est1.detect(frame1);
 
         // Estimate poses in CAMERA FRAME
-        auto poses0 = est0.estimatePoses(detections0);
+        auto poses0 = est0.estimatePoses(detections0); // <--- possible sysntax error? detect method not explicitly called by the detector class. Called by the TagPoseEstimator type class?
         auto poses1 = est1.estimatePoses(detections1);
 
         /*// Draw results on images

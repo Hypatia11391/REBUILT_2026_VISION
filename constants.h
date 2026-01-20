@@ -27,7 +27,10 @@ namespace constants {
     }};
 
     // MUST be sorted by id in strictly increasing order [IMPORTANT] <---------!!!!!!!!
-    constexpr std::array<TagPose, 1> tagPosesGlobal = {{0, 1.f, 1.f, 1.f, 0.f, 0.f, 0.f}}; // [PLACEHOLDER]
+    constexpr std::array<TagPose, 1> tagPosesGlobal = {{
+        {0, 1.f, 1.f, 1.f, 0.f, 0.f, 0.f},
+        {0, 1.f, 1.f, 1.f, 0.f, 0.f, 0.f}
+    }}; // [PLACEHOLDER]
 
     // Binary-search lookup by tag ID
     constexpr std::optional<TagPose> getTagPose(int id){
