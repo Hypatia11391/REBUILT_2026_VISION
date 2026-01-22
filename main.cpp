@@ -22,13 +22,8 @@ int main() {
     CameraDevice cam0(0);
     CameraDevice cam1(1);
 
-    if (!cam0.open()) {
-        std::cerr << "Failed to open camera 0" << std::endl;
-        return 1;
-    }
-
-    if (!cam1.open()) {
-        std::cerr << "Failed to open camera 1" << std::endl;
+    if (!cam0.open() || !cam1.open()) {
+        std::cerr << "Failed to open cameras\n";
         return 1;
     }
 
@@ -81,24 +76,43 @@ int main() {
         est0.drawDetections(frame0, detections0);
         est1.drawDetections(frame1, detections1);*/
 
-        // Print pose results with timestamps
         auto ts0_ms = duration_cast<milliseconds>(ts0.time_since_epoch()).count();
         auto ts1_ms = duration_cast<milliseconds>(ts1.time_since_epoch()).count();
 
         std::cout << "Camera 0 timestamp(ms): " << ts0_ms << std::endl;
-        for (const auto& p : poses0) {
-            std::cout << "  Tag " << p.id
-                      << " position(cam frame): [" << p.x << ", " << p.y << ", " << p.z << "]"
-                      << " orientation(rpy): [" << p.roll << ", " << p.pitch << ", " << p.yaw << "]"
-                      << std::endl;
+        for (const auto& tagCamPose : poses0) {
+
+            // Lookup tag in global map
+            auto globalTagOpt = constants::getTagPose(tagCamPose.id);
+            if (!globalTagOpt) continue;
+
+            Pose3D tagInCamera{tagCamPose.rotation, tagCamPose.translation};
+            Pose3D tagInGlobal = tagPoseInGlobal(*globalTagOpt);
+
+            Pose3D robotInGlobal = estimateRobotPoseFromTag(tagInCamera, cameraPoseInRobot(0), tagInGlobal); // <----- ToDo: add to vector that will be returned
+
+            std::cout << "  Tag " << tagCamPose.id
+                      << " → Robot global pos = ["
+                      << robotInGlobal.t[0] << ", "
+                      << robotInGlobal.t[1] << ", "
+                      << robotInGlobal.t[2] << "]\n";
         }
 
-        std::cout << "Camera 1 timestamp(ms): " << ts1_ms << std::endl;
-        for (const auto& p : poses1) {
-            std::cout << "  Tag " << p.id
-                      << " position(cam frame): [" << p.x << ", " << p.y << ", " << p.z << "]"
-                      << " orientation(rpy): [" << p.roll << ", " << p.pitch << ", " << p.yaw << "]"
-                      << std::endl;
+        for (const auto& tagCamPose : poses1) {
+            // Lookup tag in global map
+            auto globalTagOpt = constants::getTagPose(tagCamPose.id);
+            if (!globalTagOpt) continue;
+
+            Pose3D tagInCamera{tagCamPose.rotation, tagCamPose.translation};
+            Pose3D tagInGlobal = tagPoseInGlobal(*globalTagOpt);
+
+            Pose3D robotInGlobal = estimateRobotPoseFromTag(tagInCamera, cameraPoseInRobot(1), tagInGlobal); // <----- ToDo: add to vector that will be returned
+
+            std::cout << "  Tag " << tagCamPose.id
+                      << " → Robot global pos = ["
+                      << robotInGlobal.t[0] << ", "
+                      << robotInGlobal.t[1] << ", "
+                      << robotInGlobal.t[2] << "]\n";
         }
 
         // Show windows

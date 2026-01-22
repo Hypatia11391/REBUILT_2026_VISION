@@ -22,14 +22,14 @@ namespace constants {
 
     // Create an array of all the cameras attached to the Pi
     constexpr std::array<Camera, 2> Cameras = {{
-        /* camera 0 */ {1000.f, 1000.f, 960.f, 540.f, /* <--- intrinsics | pose ---> */ 0.5f, 0.5f, 0.5f, 0.f, 0.f, 0.f},
-        /* camera 1 */ {1000.f, 1000.f, 960.f, 540.f,  /* <--- intrinsics | pose ---> */ 0.f, 0.f, 0.f, 180.f, 0.f, 0.f}
+        /* camera 0 */ {0.5f, 0.5f, 0.5f, 0.f, 0.f, 0.f, /* <--- intrinsics | pose ---> */ 1000.f, 1000.f, 960.f, 540.f}, // [PLACEHOLDER]
+        /* camera 1 */ {0.5f, 0.5f, 0.5f, 0.f, 0.f, 0.f, /* <--- intrinsics | pose ---> */ 1000.f, 1000.f, 960.f, 540.f} // [PLACEHOLDER
     }};
 
     // MUST be sorted by id in strictly increasing order [IMPORTANT] <---------!!!!!!!!
-    constexpr std::array<TagPose, 1> tagPosesGlobal = {{
+    constexpr std::array<TagPose, 2> tagPosesGlobal = {{
         {0, 1.f, 1.f, 1.f, 0.f, 0.f, 0.f},
-        {0, 1.f, 1.f, 1.f, 0.f, 0.f, 0.f}
+        {1, 1.f, 1.f, 1.f, 0.f, 0.f, 0.f}
     }}; // [PLACEHOLDER]
 
     // Binary-search lookup by tag ID
