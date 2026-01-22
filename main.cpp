@@ -8,6 +8,7 @@
 
 #include <iostream>
 #include <chrono>
+#include <vector>
 
 #include <opencv2/opencv.hpp>
 
@@ -79,6 +80,8 @@ int main() {
         auto ts0_ms = duration_cast<milliseconds>(ts0.time_since_epoch()).count();
         auto ts1_ms = duration_cast<milliseconds>(ts1.time_since_epoch()).count();
 
+        std::vector<Pose3D> robotPoseEsts;
+
         std::cout << "Camera 0 timestamp(ms): " << ts0_ms << std::endl;
         for (const auto& tagCamPose : poses0) {
 
@@ -90,6 +93,8 @@ int main() {
             Pose3D tagInGlobal = tagPoseInGlobal(*globalTagOpt);
 
             Pose3D robotInGlobal = estimateRobotPoseFromTag(tagInCamera, cameraPoseInRobot(0), tagInGlobal); // <----- ToDo: add to vector that will be returned
+
+            robotPoseEsts.push_back(robotInGlobal);
 
             std::cout << "  Tag " << tagCamPose.id
                       << " → Robot global pos = ["
@@ -107,6 +112,8 @@ int main() {
             Pose3D tagInGlobal = tagPoseInGlobal(*globalTagOpt);
 
             Pose3D robotInGlobal = estimateRobotPoseFromTag(tagInCamera, cameraPoseInRobot(1), tagInGlobal); // <----- ToDo: add to vector that will be returned
+
+            robotPoseEsts.push_back(robotInGlobal);
 
             std::cout << "  Tag " << tagCamPose.id
                       << " → Robot global pos = ["
