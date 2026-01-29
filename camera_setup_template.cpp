@@ -1,8 +1,3 @@
-#include <chrono>
-#include <vector>
-
-#include "header.h"
-
 #include <libcamera/libcamera.h>
 #include <libcamera/camera_manager.h>
 #include <libcamera/framebuffer_allocator.h>
@@ -128,27 +123,3 @@ int main() {
     cm.stop();
     return 0;
 }
-    
-    // Loop
-        // Start thread for each camera
-            // Read Frame
-
-            // Detect apriltags
-
-            // Estimate poses of AprilTags
-
-            // For each detection estimate the global robot pose and uncertainty
-                // Invert tag pose (becomes camera in Tag frame)
-
-                // Convert to global frame (Becomes camera in global)
-
-                // Convert to robot in global
-
-                // Estimate uncertainty
-                    // Range, uncertainty (pixels), ?etc?
-                
-                // Append to vector of RobotPose structs "vector<RobotPose> RobotPoses;"
-        
-        // Merge threads and vectors
-
-        // Send Robot Poses to RoboRio
