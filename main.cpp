@@ -19,11 +19,11 @@
 struct LatestFrame {
     std::mutex mtx;
     std::condition_variable cv;
-    std::shared_ptr<Request> req;
+    std::shared_ptr<libcamera::Request> req;
     bool ready = false;
 };
 
-void cameraThread(Camera *cam, LatestFrame &latest) {
+void cameraThread(libcamera::Camera *cam, LatestFrame &latest) {
     libcamera::FrameBufferAllocator allocator(cam);
 
     for (auto &stream : cam->streams())
@@ -32,7 +32,7 @@ void cameraThread(Camera *cam, LatestFrame &latest) {
     cam->start();
 
     // Create & queue one request per buffer
-    std::vector<std::unique_ptr<Request>> requests;
+    std::vector<std::unique_ptr<libcamera::Request>> requests;
     for (unsigned i = 0; i < 4; ++i) {
         auto req = cam->createRequest();
         for (auto &[stream, buffers] : allocator.buffers()) {
@@ -50,7 +50,7 @@ void cameraThread(Camera *cam, LatestFrame &latest) {
 
         {
             std::lock_guard lock(latest.mtx);
-            latest.req.reset(completed, [](Request *) {});
+            latest.req.reset(completed, [](libcamera::Request *) {});
             latest.ready = true;
         }
         latest.cv.notify_one();
@@ -59,7 +59,7 @@ void cameraThread(Camera *cam, LatestFrame &latest) {
     }
 }
 
-Camera *bindCameraToPort(CameraManager &cm, const std::string &portTag) {
+libcamera::Camera *bindCameraToPort(libcamera::CameraManager &cm, const std::string &portTag) {
     for (auto &cam : cm.cameras()) {
         const std::string &id = cam->id();
         std::cout << "Detected camera ID: " << id << '\n';
@@ -74,8 +74,8 @@ int main() {
     cm.start();
 
     // Deterministic CSI binding
-    Camera *cam0 = bindCameraToPort(cm, "csi0");
-    Camera *cam1 = bindCameraToPort(cm, "csi1");
+    libcamera::Camera *cam0 = bindCameraToPort(cm, "csi0");
+    libcamera::Camera *cam1 = bindCameraToPort(cm, "csi1");
 
     if (!cam0 || !cam1) {
         std::cerr << "ERROR: Could not bind both cameras to CSI ports\n";
@@ -83,11 +83,11 @@ int main() {
     }
 
     // Configure streams
-    auto cfg0 = cam0->generateConfiguration({ StreamRole::VideoRecording });
-    auto cfg1 = cam1->generateConfiguration({ StreamRole::VideoRecording });
+    auto cfg0 = cam0->generateConfiguration({ libcamera::StreamRole::VideoRecording });
+    auto cfg1 = cam1->generateConfiguration({ libcamera::StreamRole::VideoRecording });
 
-    cfg0->at(0).pixelFormat = formats::YUV420;
-    cfg1->at(0).pixelFormat = formats::YUV420;
+    cfg0->at(0).pixelFormat = libcamera::formats::Y8; // Check if y8 configures successfully. Also try GREY. If that doesn't work will try Y10, but that is more work elsewere.
+    cfg1->at(0).pixelFormat = libcamera::formats::Y8;
     cfg0->at(0).size = {1280, 1080};
     cfg1->at(0).size = {1280, 1080};
     cfg0->at(0).bufferCount = 4;
@@ -108,7 +108,7 @@ int main() {
             auto req = latest0.req;
             latest0.ready = false;
 
-            auto ts = req->metadata().get(Request::BufferMetadata::Timestamp);
+            auto ts = req->metadata().get(libcamera::Request::BufferMetadata::Timestamp);
             std::cout << "Cam0 timestamp: " << ts << " ns\n";
         }
 
@@ -118,37 +118,33 @@ int main() {
             auto req = latest1.req;
             latest1.ready = false;
 
-            auto ts = req->metadata().get(Request::BufferMetadata::Timestamp);
+            auto ts = req->metadata().get(libcamera::Request::BufferMetadata::Timestamp);
             std::cout << "Cam1 timestamp: " << ts << " ns\n";
         }
 
-        // Your processing happens here (always newest frame only)
+        // Read Frame
+
+        // Detect apriltags
+
+        // Estimate poses of AprilTags
+
+        // For each detection estimate the global robot pose and uncertainty
+            // Invert tag pose (becomes camera in Tag frame)
+
+            // Convert to global frame (Becomes camera in global)
+
+            // Convert to robot in global
+
+            // Estimate uncertainty
+                // Range, uncertainty (pixels), ?etc?
+            
+            // Append to vector of RobotPose structs "vector<RobotPose> RobotPoses;"
+
+        // Send Robot Poses to RoboRio
     }
+
+    // Clean up threads
 
     cm.stop();
     return 0;
 }
-    
-    // Loop
-        // Start thread for each camera
-            // Read Frame
-
-            // Detect apriltags
-
-            // Estimate poses of AprilTags
-
-            // For each detection estimate the global robot pose and uncertainty
-                // Invert tag pose (becomes camera in Tag frame)
-
-                // Convert to global frame (Becomes camera in global)
-
-                // Convert to robot in global
-
-                // Estimate uncertainty
-                    // Range, uncertainty (pixels), ?etc?
-                
-                // Append to vector of RobotPose structs "vector<RobotPose> RobotPoses;"
-        
-        // Merge threads and vectors
-
-        // Send Robot Poses to RoboRio
