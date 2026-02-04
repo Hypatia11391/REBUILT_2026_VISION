@@ -27,6 +27,12 @@ struct LatestFrame {
     bool ready = false;
 };
 
+struct RobotPoseEstimate {
+    std::optional<int64_t> timestamp;
+    double err;
+    Eigen::Matrix4f pose;
+};
+
 void cameraThread(libcamera::Camera *cam, LatestFrame &latest) {
     libcamera::FrameBufferAllocator allocator(cam);
 
@@ -137,6 +143,9 @@ int main() {
     info1.cx = constants::Cameras[1].cx;
     info1.cy = constants::Cameras[1].cy;
 
+    std::vector<RobotPoseEstimate> poseEstimates;
+    RobotPoseEstimate current_estimate;
+
     while (true) {
         {
             std::unique_lock lock(latest0.mtx);
@@ -146,6 +155,7 @@ int main() {
 
             auto ts = req->metadata().get(libcamera::Request::BufferMetadata::Timestamp);
             std::cout << "Cam0 timestamp: " << ts << " ns\n";
+            current_estimate.timestamp = ts;
 
             const auto &buffers = latest0.req->buffers();
             const libcamera::FrameBuffer *buffer = buffers.begin()->second;
@@ -178,7 +188,12 @@ int main() {
                 Eigen::Matrix4f tagPoseInCamera = poseAprilTagToEigen(&pose);
                 Eigen::Matrix4f cameraPoseInTag = tagPoseInCamera.inverse();
 
-                Eigen::Matrix4f robotPoseInGlobal = constants::AprilTagPosesInGlobal[/*det index*/] * cameraPoseInTag * constants::Cameras[0].RobotPoseInCamera
+                Eigen::Matrix4f robotPoseInGlobal = constants::AprilTagPosesInGlobal[det.id-1] * cameraPoseInTag * constants::Cameras[0].RobotPoseInCamera
+
+                current_estimate.err = err;
+                current_estimate.pose = robotPoseInGlobal;
+
+                poseEstimates.push_back(current_estimate);
             }
         }
 
@@ -190,6 +205,7 @@ int main() {
 
             auto ts = req->metadata().get(libcamera::Request::BufferMetadata::Timestamp);
             std::cout << "Cam1 timestamp: " << ts << " ns\n";
+            current_estimate.timestamp = ts;
 
             const auto &buffers = latest1.req->buffers();
             const libcamera::FrameBuffer *buffer = buffers.begin()->second;
@@ -222,8 +238,15 @@ int main() {
                 Eigen::Matrix4f tagPoseInCamera = poseAprilTagToEigen(&pose);
                 Eigen::Matrix4f cameraPoseInTag = tagPoseInCamera.inverse();
 
-                Eigen::Matrix4f robotPoseInGlobal = constants::AprilTagPosesInGlobal[/*det ID*/] * cameraPoseInTag * constants::Cameras[1].RobotPoseInCamera
+                Eigen::Matrix4f robotPoseInGlobal = constants::AprilTagPosesInGlobal[det.id-1] * cameraPoseInTag * constants::Cameras[1].RobotPoseInCamera
+
+                current_estimate.err = err;
+                current_estimate.pose = robotPoseInGlobal;
+
+                poseEstimates.push_back(current_estimate);
             }
+
+            //Figure out how to send the estimates to the roborio.
         }
 
         // Read Frame
