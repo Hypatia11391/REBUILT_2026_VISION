@@ -8,6 +8,10 @@
 #include <libcamera/framebuffer_allocator.h>
 #include <libcamera/request.h>
 
+#include <apriltag/apriltag_pose.h>
+
+#include <Eigen/Dense>
+
 #include <atomic>
 #include <condition_variable>
 #include <iostream>
@@ -69,6 +73,20 @@ libcamera::Camera *bindCameraToPort(libcamera::CameraManager &cm, const std::str
     return nullptr;
 }
 
+Eigen::Matrix4f poseAprilTagToEigen(const apriltag_pose_t& pose) {
+    Eigen::Matrix4f mat = Eigen::Matrix4f::Identity();
+
+    // Map the 3x3 rotation matrix (double to float)
+    Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>> R(pose.R->data);
+    mat.block<3, 3>(0, 0) = R.cast<float>();
+
+    // Map the 3x1 translation vector (double to float)
+    Eigen::Map<Eigen::Matrix<double, 3, 1>> t(pose.t->data);
+    mat.block<3, 1>(0, 3) = t.cast<float>();
+
+    return mat;
+}
+
 int main() {
     libcamera::CameraManager cm;
     cm.start();
@@ -101,6 +119,24 @@ int main() {
     std::jthread t0(cameraThread, cam0, std::ref(latest0));
     std::jthread t1(cameraThread, cam1, std::ref(latest1));
 
+    apriltag_detector_t *td = apriltag_detector_create();
+
+    apriltag_detection_info_t info0;
+    info0.det = det;
+    info0.tagsize = constants::tagsize;
+    info0.fx = constants::Cameras[0].fx;
+    info0.fy = constants::Cameras[0].fy;
+    info0.cx = constants::Cameras[0].cx;
+    info0.cy = constants::Cameras[0].cy;
+
+    apriltag_detection_info_t info1;
+    info1.det = det;
+    info1.tagsize = constants::tagsize;
+    info1.fx = constants::Cameras[1].fx;
+    info1.fy = constants::Cameras[1].fy;
+    info1.cx = constants::Cameras[1].cx;
+    info1.cy = constants::Cameras[1].cy;
+
     while (true) {
         {
             std::unique_lock lock(latest0.mtx);
@@ -110,6 +146,40 @@ int main() {
 
             auto ts = req->metadata().get(libcamera::Request::BufferMetadata::Timestamp);
             std::cout << "Cam0 timestamp: " << ts << " ns\n";
+
+            const auto &buffers = latest0.req->buffers();
+            const libcamera::FrameBuffer *buffer = buffers.begin()->second;
+
+            const auto &plane = buffer->planes()[0];
+            int fd = plane.fd.get();
+            size_t length = plane.length;
+
+            void *mem = mmap(nullptr, length, PROT_READ, MAP_SHARED, fd, 0);
+            if (mem == MAP_FAILED)
+                return;
+
+            uint8_t *gray = static_cast<uint8_t*>(mem);
+
+            image_u8_t im{};
+            im.width  = width;
+            im.height = height;
+            im.stride = width;     // Y8 = 1 byte per pixel
+            im.buf    = gray;
+
+            zarray_t *detections = apriltag_detector_detect(td, im);
+
+            for (int i = 0; i < zarray_size(detections); i++) {
+                apriltag_detection_t *det;
+                zarray_get(detections, i, &det);
+
+                apriltag_pose_t pose;
+                double err = estimate_tag_pose(&info0, &pose);
+
+                Eigen::Matrix4f tagPoseInCamera = poseAprilTagToEigen(&pose);
+                Eigen::Matrix4f cameraPoseInTag = tagPoseInCamera.inverse();
+
+                Eigen::Matrix4f robotPoseInGlobal = constants::AprilTagPosesInGlobal[/*det index*/] * cameraPoseInTag * constants::Cameras[0].RobotPoseInCamera
+            }
         }
 
         {
@@ -120,6 +190,40 @@ int main() {
 
             auto ts = req->metadata().get(libcamera::Request::BufferMetadata::Timestamp);
             std::cout << "Cam1 timestamp: " << ts << " ns\n";
+
+            const auto &buffers = latest1.req->buffers();
+            const libcamera::FrameBuffer *buffer = buffers.begin()->second;
+
+            const auto &plane = buffer->planes()[0];
+            int fd = plane.fd.get();
+            size_t length = plane.length;
+
+            void *mem = mmap(nullptr, length, PROT_READ, MAP_SHARED, fd, 0);
+            if (mem == MAP_FAILED)
+                return;
+
+            uint8_t *gray = static_cast<uint8_t*>(mem);
+
+            image_u8_t im{};
+            im.width  = width;
+            im.height = height;
+            im.stride = width;     // Y8 = 1 byte per pixel
+            im.buf    = gray;
+
+            zarray_t *detections = apriltag_detector_detect(td, im);
+
+            for (int i = 0; i < zarray_size(detections); i++) {
+                apriltag_detection_t *det;
+                zarray_get(detections, i, &det);
+
+                apriltag_pose_t pose;
+                double err = estimate_tag_pose(&info1, &pose);
+
+                Eigen::Matrix4f tagPoseInCamera = poseAprilTagToEigen(&pose);
+                Eigen::Matrix4f cameraPoseInTag = tagPoseInCamera.inverse();
+
+                Eigen::Matrix4f robotPoseInGlobal = constants::AprilTagPosesInGlobal[/*det ID*/] * cameraPoseInTag * constants::Cameras[1].RobotPoseInCamera
+            }
         }
 
         // Read Frame

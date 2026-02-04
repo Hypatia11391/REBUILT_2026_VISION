@@ -20,7 +20,7 @@ namespace constants () {
     // Define a datatype to hold camera info
     struct CameraInfo {
         float fx, fy, cx, cy; // Intrinsics
-        Eigen::Matrix4f RobotPose_Camera(4, 4); // Because of how this is used in algorithm it is faster to store it as the robot pose in the camera frame for fewer inversions
+        Eigen::Matrix4f RobotPoseInCamera(4, 4); // Because of how this is used in algorithm it is faster to store it as the robot pose in the camera frame for fewer inversions
     };
 
     // Define the tag size (in meters)
@@ -47,7 +47,7 @@ namespace constants () {
     }};
 
     // Create an array of all the AprilTags on the field. ID is ordered such that tag with ID = n is at index = n - 1.
-    constexpr std::array<Eigen::Matrix4f, 2> AprilTagPoses_Global{{ // <---- There will be 32 tags
+    constexpr std::array<Eigen::Matrix4f, 2> AprilTagPosesInGlobal{{ // <---- There will be 32 tags
         // Pose for tag 0 (id = 1)
         {{0.f, 0.f, 0.f, 0.f},
          {0.f, 0.f, 0.f, 0.f},
