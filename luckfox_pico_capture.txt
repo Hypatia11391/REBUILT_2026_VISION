@@ -1,0 +1,11 @@
+Under /etc/udev/rules.d/99-luckfox-cams.rules create:
+
+SUBSYSTEM=="video4linux", ATTRS{serial}=="123456", SYMLINK+="video-luckfox-front"
+SUBSYSTEM=="video4linux", ATTRS{serial}=="654321", SYMLINK+="video-luckfox-back"
+
+sudo udevadm control --reload-rules
+sudo udevadm trigger
+
+can be accessed with:
+int fd = open("/dev/video-luckfox-front", O_RDWR);
+
