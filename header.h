@@ -2,7 +2,7 @@
 # include <array>
 # include <optional>
 # include <cstddef>
-# include <Eigen/dense>
+# include <Eigen/Dense>
 
 namespace constants () {
     /*// Define a structure for poses
