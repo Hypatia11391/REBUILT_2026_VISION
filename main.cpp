@@ -2,6 +2,10 @@
 
 #include <Eigen/Dense>
 
+#include <opencv2/opencv.hpp>
+#include <opencv2/videoio.hpp>
+#include <opencv2/core.hpp>
+
 #include <atomic>
 #include <condition_variable>
 #include <iostream>
@@ -11,6 +15,8 @@
 #include <thread>
 #include <chrono>
 #include <vector>
+#include <cstring>
+#include <cstdint>
 
 #include "header.h"
 
@@ -71,7 +77,6 @@ int main () {
     apriltag_detector_add_family(td, tf);
 
     apriltag_detection_info_t info0;
-    info0.det = det;
     info0.tagsize = constants::tagsize;
     info0.fx = constants::Cameras[0].fx;
     info0.fy = constants::Cameras[0].fy;
@@ -79,7 +84,6 @@ int main () {
     info0.cy = constants::Cameras[0].cy;
 
     apriltag_detection_info_t info1;
-    info1.det = det;
     info1.tagsize = constants::tagsize;
     info1.fx = constants::Cameras[1].fx;
     info1.fy = constants::Cameras[1].fy;
@@ -127,34 +131,39 @@ while (true) {
         apriltag_detection_t *det;
         zarray_get(detections0, i, &det);
 
+
+        info0.det = det;
+
         apriltag_pose_t pose;
         double err = estimate_tag_pose(&info0, &pose);
 
-        Eigen::Matrix4f tagPoseInCamera = poseAprilTagToEigen(&pose);
+        Eigen::Matrix4f tagPoseInCamera = poseAprilTagToEigen(pose);
         Eigen::Matrix4f cameraPoseInTag = tagPoseInCamera.inverse();
 
-        Eigen::Matrix4f robotPoseInGlobal = constants::AprilTagPosesInGlobal[det.id-1] * cameraPoseInTag * constants::Cameras[0].RobotPoseInCamera
+        Eigen::Matrix4f robotPoseInGlobal = constants::AprilTagPosesInGlobal[det.id-1] * cameraPoseInTag * constants::Cameras[0].RobotPoseInCamera;
 
-        current_estimate.err = err;
-        current_estimate.pose = robotPoseInGlobal;
+        current_estimate0.err = err;
+        current_estimate0.pose = robotPoseInGlobal;
 
         poseEstimates.push_back(current_estimate);
     }
 
-    for (int i = 0; i < zarray_size(detections0); i++) {
+    for (int i = 0; i < zarray_size(detections1); i++) {
         apriltag_detection_t *det;
-        zarray_get(detections0, i, &det);
+        zarray_get(detections1, i, &det);
+
+        info1.det = det;
 
         apriltag_pose_t pose;
-        double err = estimate_tag_pose(&info0, &pose);
+        double err = estimate_tag_pose(&info1, &pose);
 
-        Eigen::Matrix4f tagPoseInCamera = poseAprilTagToEigen(&pose);
+        Eigen::Matrix4f tagPoseInCamera = poseAprilTagToEigen(pose);
         Eigen::Matrix4f cameraPoseInTag = tagPoseInCamera.inverse();
 
-        Eigen::Matrix4f robotPoseInGlobal = constants::AprilTagPosesInGlobal[det.id-1] * cameraPoseInTag * constants::Cameras[0].RobotPoseInCamera
+        Eigen::Matrix4f robotPoseInGlobal = constants::AprilTagPosesInGlobal[det.id-1] * cameraPoseInTag * constants::Cameras[0].RobotPoseInCamera;
 
-        current_estimate.err = err;
-        current_estimate.pose = robotPoseInGlobal;
+        current_estimate1.err = err;
+        current_estimate1.pose = robotPoseInGlobal;
 
         poseEstimates.push_back(current_estimate);
     }

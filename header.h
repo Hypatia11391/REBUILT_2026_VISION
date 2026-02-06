@@ -4,7 +4,7 @@
 # include <cstddef>
 # include <Eigen/Dense>
 
-namespace constants () {
+namespace constants {
     /*// Define a structure for poses
     struct Pose3D {
     Eigen::MatrixXD R(3, 3);   // rotation
