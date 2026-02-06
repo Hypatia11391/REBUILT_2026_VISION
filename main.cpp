@@ -1,4 +1,7 @@
 #include <apriltag/apriltag_pose.h>
+#include <apriltag/apriltag.h>
+#include <apriltag/tag36h11.h>
+#include <apriltag/common/zarray.h>
 
 #include <Eigen/Dense>
 
@@ -76,6 +79,11 @@ int main () {
     apriltag_detector_t *td = apriltag_detector_create();
     apriltag_detector_add_family(td, tf);
 
+    td->quad_decimate = 1.0;
+    td->quad_sigma = 0.0;
+    td->nthreads = 4;   // may need to adjust this down
+    td->refine_edges = 1;
+
     apriltag_detection_info_t info0;
     info0.tagsize = constants::tagsize;
     info0.fx = constants::Cameras[0].fx;
@@ -94,83 +102,91 @@ int main () {
     RobotPoseEstimate current_estimate0;
     RobotPoseEstimate current_estimate1;
 
-while (true) {
-    cv::Mat frame0, frame1;
+    while (true) {
+        cv::Mat frame0, frame1;
 
-    cap0 >> frame0;
-    cap1 >> frame1;
+        cap0 >> frame0;
+        cap1 >> frame1;
 
-    if (frame0.empty() || frame1.empty()) {
-        std::cerr << "Frame grab failed\n";
-        continue;
-    }
+        if (frame0.empty() || frame1.empty()) {
+            std::cerr << "Frame grab failed\n";
+            continue;
+        }
 
-    // Extract timestamps and grayscale pointers
-    uint8_t* gray0;
-    uint8_t* gray1;
+        std::cout << "Frame0 size bytes: " << frame0.total() * frame0.elemSize() << "\n"; // Temp for debugging. Check to see if the Luckfox has actually delivered [8 bytes ts][Y8 pixel data]. Expected output: 1,382,408
+        std::cout << "Frame1 size bytes: " << frame1.total() * frame1.elemSize() << "\n";
 
-    current_estimate0.timestamp = extract_timestamp_and_ptr(frame0, gray0);
-    current_estimate1.timestamp = extract_timestamp_and_ptr(frame1, gray1);
+        // Extract timestamps and grayscale pointers
+        uint8_t* gray0;
+        uint8_t* gray1;
 
-    image_u8_t im0{};
-    im0.width  = frame0.cols;
-    im0.height = frame0.rows;
-    im0.stride = frame0.cols; // Y8 = 1 byte per pixel
-    im0.buf    = gray0;
+        current_estimate0.timestamp = extract_timestamp_and_ptr(frame0, gray0);
+        current_estimate1.timestamp = extract_timestamp_and_ptr(frame1, gray1);
 
-    image_u8_t im1{};
-    im1.width  = frame1.cols;
-    im1.height = frame1.rows;
-    im1.stride = frame1.cols;
-    im1.buf    = gray1;
+        image_u8_t im0{};
+        im0.width  = frame0.cols;
+        im0.height = frame0.rows;
+        im0.stride = frame0.cols; // Y8 = 1 byte per pixel
+        im0.buf    = gray0;
 
-    zarray_t *detections0 = apriltag_detector_detect(td, &im0);
-    zarray_t *detections1 = apriltag_detector_detect(td, &im1);
+        image_u8_t im1{};
+        im1.width  = frame1.cols;
+        im1.height = frame1.rows;
+        im1.stride = frame1.cols;
+        im1.buf    = gray1;
 
-    for (int i = 0; i < zarray_size(detections0); i++) {
-        apriltag_detection_t *det;
-        zarray_get(detections0, i, &det);
+        zarray_t *detections0 = apriltag_detector_detect(td, &im0);
+        zarray_t *detections1 = apriltag_detector_detect(td, &im1);
+
+        for (int i = 0; i < zarray_size(detections0); i++) {
+            apriltag_detection_t *det;
+            zarray_get(detections0, i, &det);
 
 
-        info0.det = det;
+            info0.det = det;
 
-        apriltag_pose_t pose;
-        double err = estimate_tag_pose(&info0, &pose);
+            apriltag_pose_t pose;
+            double err = estimate_tag_pose(&info0, &pose);
 
-        Eigen::Matrix4f tagPoseInCamera = poseAprilTagToEigen(pose);
-        Eigen::Matrix4f cameraPoseInTag = tagPoseInCamera.inverse();
+            Eigen::Matrix4f tagPoseInCamera = poseAprilTagToEigen(pose);
+            Eigen::Matrix4f cameraPoseInTag = tagPoseInCamera.inverse();
 
-        Eigen::Matrix4f robotPoseInGlobal = constants::AprilTagPosesInGlobal[det.id-1] * cameraPoseInTag * constants::Cameras[0].RobotPoseInCamera;
+            Eigen::Matrix4f robotPoseInGlobal = constants::AprilTagPosesInGlobal[det->id-1] * cameraPoseInTag * constants::Cameras[0].RobotPoseInCamera;
 
-        current_estimate0.err = err;
-        current_estimate0.pose = robotPoseInGlobal;
+            current_estimate0.err = err;
+            current_estimate0.pose = robotPoseInGlobal;
 
-        poseEstimates.push_back(current_estimate);
-    }
+            poseEstimates.push_back(current_estimate0);
+        }
 
-    for (int i = 0; i < zarray_size(detections1); i++) {
-        apriltag_detection_t *det;
-        zarray_get(detections1, i, &det);
+        for (int i = 0; i < zarray_size(detections1); i++) {
+            apriltag_detection_t *det;
+            zarray_get(detections1, i, &det);
 
-        info1.det = det;
+            info1.det = det;
 
-        apriltag_pose_t pose;
-        double err = estimate_tag_pose(&info1, &pose);
+            apriltag_pose_t pose;
+            double err = estimate_tag_pose(&info1, &pose);
 
-        Eigen::Matrix4f tagPoseInCamera = poseAprilTagToEigen(pose);
-        Eigen::Matrix4f cameraPoseInTag = tagPoseInCamera.inverse();
+            Eigen::Matrix4f tagPoseInCamera = poseAprilTagToEigen(pose);
+            Eigen::Matrix4f cameraPoseInTag = tagPoseInCamera.inverse();
 
-        Eigen::Matrix4f robotPoseInGlobal = constants::AprilTagPosesInGlobal[det.id-1] * cameraPoseInTag * constants::Cameras[0].RobotPoseInCamera;
+            Eigen::Matrix4f robotPoseInGlobal = constants::AprilTagPosesInGlobal[det->id-1] * cameraPoseInTag * constants::Cameras[1].RobotPoseInCamera;
 
-        current_estimate1.err = err;
-        current_estimate1.pose = robotPoseInGlobal;
+            current_estimate1.err = err;
+            current_estimate1.pose = robotPoseInGlobal;
 
-        poseEstimates.push_back(current_estimate);
-    }
+            poseEstimates.push_back(current_estimate1);
+        }
 
-    //std::cout << "Detections: " << zarray_size(detections) << "\n";
-    apriltag_detections_destroy(detections0);
-    apriltag_detections_destroy(detections1);
-    };
+        //std::cout << "Detections: " << zarray_size(detections) << "\n";
+        apriltag_detections_destroy(detections0);
+        apriltag_detections_destroy(detections1);
+        };
+
+    apriltag_detector_destroy(td);
+    tag36h11_destroy(tf);
+
+    return 0;
 
 }
