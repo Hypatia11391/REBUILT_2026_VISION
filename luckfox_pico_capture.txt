@@ -9,3 +9,13 @@ sudo udevadm trigger
 can be accessed with:
 int fd = open("/dev/video-luckfox-front", O_RDWR);
 
+also run to configure usb:
+
+#!/bin/bash
+# Disable default services that might lock the camera
+RkLunch-stop.sh
+killall rkipc
+
+# Initialize the USB Gadget as a UVC device
+# This script is provided in the Luckfox SDK / standard image
+usb_config.sh uvc

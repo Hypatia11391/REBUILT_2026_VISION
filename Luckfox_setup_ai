@@ -1,0 +1,78 @@
+1. Flash the OS and Verify Hardware
+
+    Flash the Image: Use the official Luckfox SocToolKit to flash the latest Buildroot image. Buildroot is preferred over Ubuntu for this application because it boots faster (~2-5 seconds).
+
+    Connect the ISG1321: Connect the camera via the MIPI CSI ribbon cable. Ensure the cable is oriented correctly (contacts facing the board).
+
+    Test the Camera: Use the built-in test tool to ensure the camera is working:
+    Bash
+
+    rkipc -a /etc/rkipc.ini
+
+2. Configure the USB UVC Gadget
+
+By default, the Luckfox USB port is for ADB (debugging). You must change it to act as a UVC (Universal Video Class) device so the Pi 5 sees it as a webcam.
+
+    Disable default services:
+    Bash
+
+    RkLunch-stop.sh  # Stops the default camera app
+
+    Enable UVC Mode: Luckfox provides a script to switch USB modes. Run:
+    Bash
+
+    usb_config.sh uvc
+
+    Note: If you want this to persist after a reboot, add this line to /etc/init.d/S99
+    user_script.
+
+3. Cross-Compile and Deploy the Capture App
+
+You cannot easily compile the C++ code on the Luckfox itself. Use a Linux PC to cross-compile for the RV1103 (ARM Cortex-A7).
+
+    The Code: Use the corrected logic from my previous response. Specifically, ensure you are pulling from /dev/video11 (the ISP output) and writing to /dev/video0 (the USB gadget).
+
+    The Timestamp: Ensure your code writes the 8-byte uint64_t timestamp into the first few bytes of the frame buffer.
+
+    Deploy: Use scp to move the compiled binary to the Luckfox:
+    Bash
+
+    scp luckfox_capture root@192.168.1.xxx:/root/
+
+4. Identify Serial Numbers for the Pi 5
+
+Since you have two identical Luckfox boards, the Raspberry Pi 5 will get confused about which is "Front" and which is "Back."
+
+    Plug in one Luckfox to the Pi 5.
+
+    Run udevadm info --name=/dev/video0 | grep SERIAL.
+
+    Note the serial number. Repeat for the second board.
+
+    Create Udev Rules: On the Raspberry Pi 5, create /etc/udev/rules.d/99-luckfox.rules as shown in your luckfox_pico_capture.txt:
+    Bash
+
+    SUBSYSTEM=="video4linux", ATTRS{serial}=="YOUR_SERIAL_1", SYMLINK+="video-luckfox-front"
+    SUBSYSTEM=="video4linux", ATTRS{serial}=="YOUR_SERIAL_2", SYMLINK+="video-luckfox-back"
+
+    Reload: sudo udevadm control --reload-rules && sudo udevadm trigger.
+
+5. Final Integration on Raspberry Pi 5
+
+Now that the Pi sees /dev/video-luckfox-front, update your main.cpp to use these paths instead of /dev/video0.
+
+    Reading the Timestamp: In your OpenCV capture loop on the Pi, extract the timestamp:
+    C++
+
+    cv::Mat frame;
+    cap >> frame; // cap opened via /dev/video-luckfox-front
+    uint64_t* ts_ptr = reinterpret_cast<uint64_t*>(frame.data);
+    uint64_t capture_time = *ts_ptr;
+
+    Latency Compensation: Calculate the age of the frame:
+    C++
+
+    uint64_t now = get_time_ns();
+    double latency_seconds = (now - capture_time) / 1e9;
+
+    Use this latency_seconds when you send your RobotPoseEstimate to the RoboRIO (via NetworkTables or Phoenix Pro) so the pose estimator can look back in time.
