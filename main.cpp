@@ -58,10 +58,10 @@ public:
         // For this example, we assume you are receiving frames in a loop:
         while (running_) {
             // 1. Get Frame from camera (Placeholder for libcamera request)
-            // cv::Mat frame = captureFrame(); 
+            cv::Mat frame = captureFrame(); 
 
             // 2. Detect Tags
-            // detections = apriltag_detector_detect(td_, image_buffer);
+            detections = apriltag_detector_detect(td_, image_buffer);
 
             // 3. Process Detections
             std::vector<RobotPoseEstimate> localEstimates;
