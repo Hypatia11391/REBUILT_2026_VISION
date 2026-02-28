@@ -73,10 +73,10 @@ public:
         cv::Mat gray(1088, 1456, CV_8UC1, data, stride_);
         
         // 1. Create a processing Mat
-        cv::Mat thresholded;
+        cv::Mat thresholded = gray;
 
         // 2. Apply Adaptive Thresholding
-        cv::adaptiveThreshold(gray, thresholded, 255, cv::ADAPTIVE_THRESH_GAUSSIAN_C, cv::THRESH_BINARY, 11, 2);
+        cv::Threshold(thresholded, 150, 255, cv::THRESH_BINARY);
 
         // 3. (Optional) Show the thresholded view to see what the computer sees
         cv::imshow("Threshold", thresholded);
