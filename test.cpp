@@ -72,6 +72,25 @@ public:
         // 1. Create a Grayscale OpenCV Mat from the Y-plane
         cv::Mat gray(1088, 1456, CV_8UC1, data, stride_);
         
+        // 1. Create a processing Mat
+        cv::Mat thresholded;
+
+        // 2. Apply Adaptive Thresholding
+        cv::adaptiveThreshold(gray, thresholded, 255, cv::ADAPTIVE_THRESH_GAUSSIAN_C, cv::THRESH_BINARY, 11, 2);
+
+        // 3. (Optional) Show the thresholded view to see what the computer sees
+        cv::imshow("Threshold", thresholded);
+
+        // 4. Update AprilTag to use the THRESHOLDED data
+        image_u8_t im{
+            .width = thresholded.cols,
+            .height = thresholded.rows,
+            .stride = (int)thresholded.step, 
+            .buf = thresholded.data
+        };
+
+        zarray_t *detections = apriltag_detector_detect(td_, &im);
+
         // 2. Convert to BGR so we can draw colored lines/text
         cv::Mat visual;
         cv::cvtColor(gray, visual, cv::COLOR_GRAY2BGR);
