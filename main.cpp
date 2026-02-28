@@ -92,7 +92,8 @@ public:
         if (!buffer) return;
 
         uint8_t *data = mappedBuffers_[buffer];
-        uint64_t timestamp = static_cast<uint64_t>(request->metadata().get(controls::SensorTimestamp));
+        auto sensorTimestamp = static_cast<uint64_t>(request->metadata().get(controls::SensorTimestamp));
+        uint64_t timestamp = sensorTimestamp ? static_cast<uint64_t>(*sensorTimestamp) : 0;
 
         image_u8_t im{
             .width = 1456,
