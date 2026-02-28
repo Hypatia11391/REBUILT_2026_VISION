@@ -1,192 +1,196 @@
+#include <libcamera/libcamera.h>
+#include <libcamera/formats.h>
+#include <libcamera/control_ids.h>
+#include <libcamera/property_ids.h>
+
 #include <apriltag/apriltag_pose.h>
 #include <apriltag/apriltag.h>
 #include <apriltag/tag36h11.h>
 #include <apriltag/common/zarray.h>
 
 #include <Eigen/Dense>
-
 #include <opencv2/opencv.hpp>
-#include <opencv2/videoio.hpp>
-#include <opencv2/core.hpp>
 
-#include <atomic>
-#include <condition_variable>
 #include <iostream>
-#include <mutex>
-#include <optional>
-#include <string>
-#include <thread>
-#include <chrono>
 #include <vector>
-#include <cstring>
-#include <cstdint>
+#include <thread>
+#include <mutex>
+#include <algorithm>
+#include <sys/mman.h>
+#include <conio.h>
 
 #include "header.h"
 
+using namespace libcamera;
+
 struct RobotPoseEstimate {
-    std::optional<int64_t> timestamp;
+    std::optional<uint64_t> timestamp;
     double err;
     Eigen::Matrix4f pose;
 };
 
+// Helper to convert AprilTag pose to Eigen matrix
 Eigen::Matrix4f poseAprilTagToEigen(const apriltag_pose_t& pose) {
     Eigen::Matrix4f mat = Eigen::Matrix4f::Identity();
-
-    // Map the 3x3 rotation matrix (double to float)
     Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>> R(pose.R->data);
     mat.block<3, 3>(0, 0) = R.cast<float>();
-
-    // Map the 3x1 translation vector (double to float)
     Eigen::Map<Eigen::Matrix<double, 3, 1>> t(pose.t->data);
     mat.block<3, 1>(0, 3) = t.cast<float>();
-
     return mat;
 }
 
-inline uint64_t extract_timestamp_and_ptr(const cv::Mat& frame, uint8_t*& gray_out) {
-    const uint8_t* data = frame.data;
+class CameraProcessor {
+public:
+    CameraProcessor(std::shared_ptr<Camera> cam, int id, apriltag_detector_t* td) : camera_(cam), id_(id), td_(td) {}
 
-    uint64_t ts_ns;
-    std::memcpy(&ts_ns, data, sizeof(uint64_t));
+    void run() {
+        if (camera_->acquire()) return;
 
-    gray_out = const_cast<uint8_t*>(data + sizeof(uint64_t)); // skip 8 bytes
-    return ts_ns;
-}
+        // Configure camera for 1456x1088 YUV420 (as recommended by manual)
+        // Note: AprilTag needs Grayscale (Y), the first plane of YUV
+        std::unique_ptr<CameraConfiguration> config = camera_->generateConfiguration({StreamRole::VideoRecording});
+        StreamConfiguration &streamConfig = config->at(0);
+        streamConfig.size.width = 1456; 
+        streamConfig.size.height = 1088;
+        streamConfig.pixelFormat = formats::YUV420; // Compatible with Raspberry Pi OS drivers [cite: 427, 428]
 
-int main () {
-    cv::VideoCapture cap0("/dev/video-luckfox-front", cv::CAP_V4L2);
-    cv::VideoCapture cap1("/dev/video-luckfox-back", cv::CAP_V4L2);
+        if (config->validate() == CameraConfiguration::Invalid) return;
+        camera_->configure(config.get());
 
-    cap0.set(cv::CAP_PROP_FRAME_WIDTH, 1280);
-    cap0.set(cv::CAP_PROP_FRAME_HEIGHT, 1080);
-    cap0.set(cv::CAP_PROP_FOURCC, cv::VideoWriter::fourcc('Y','8','0','0'));
+        // Allocate Buffers
+        FrameBufferAllocator *allocator = new FrameBufferAllocator(camera_);
+        Stream *stream = streamConfig.stream();
+        allocator->allocate(stream);
 
-    cap1.set(cv::CAP_PROP_FRAME_WIDTH, 1280);
-    cap1.set(cv::CAP_PROP_FRAME_HEIGHT, 1080);
-    cap1.set(cv::CAP_PROP_FOURCC, cv::VideoWriter::fourcc('Y','8','0','0'));
-    
-    if (!cap0.isOpened()) {
-        std::cerr << "Failed to open front camera\n";
+        // Map buffers to CPU memory
+        const std::vector<std::unique_ptr<FrameBuffer>> &buffers = allocator->buffers(stream);
+        for (const std::unique_ptr<FrameBuffer> &buffer : buffers) {
+            void *memory = mmap(NULL, buffer->planes()[0].length, PROT_READ, MAP_SHARED, buffer->planes()[0].fd.get(), 0);
+            mappedBuffers_[buffer.get()] = static_cast<uint8_t*>(memory);
+            
+            std::unique_ptr<Request> request = camera_->createRequest();
+            request->addBuffer(stream, buffer.get());
+            requests_.push_back(std::move(request));
+        }
+
+        camera_->requestCompleted.connect(this, &CameraProcessor::requestComplete);
+        camera_->start();
+
+        for (auto &request : requests_) {
+            camera_->queueRequest(request.get());
+        }
+    }
+
+    void requestComplete(Request *request) {
+        if (request->status() == Request::RequestCancelled) return;
+
+        const FrameBuffer *buffer = request->findBuffer(request->stream());
+        uint8_t *data = mappedBuffers_[buffer];
+
+        // Extract Timestamp from metadata
+        uint64_t timestamp = request->metadata().get(controls::SensorTimestamp);
+
+        // Prepare image for AprilTag (using Y-plane/Grayscale)
+        image_u8_t im{
+            .width = 1456,
+            .height = 1088,
+            .stride = 1456,
+            .buf = data
+        };
+
+        processDetections(&im, timestamp);
+
+        request->reuse(Request::ReuseBuffers);
+        camera_->queueRequest(request);
+    }
+
+private:
+    void processDetections(image_u8_t* im, uint64_t ts) {
+        zarray_t *detections = apriltag_detector_detect(td_, im);
+
+        apriltag_detection_info_t info;
+        info.tagsize = constants::tag_size; //
+        info.fx = constants::Cameras[id_].fx;
+        info.fy = constants::Cameras[id_].fy;
+        info.cx = constants::Cameras[id_].cx;
+        info.cy = constants::Cameras[id_].cy;
+
+        for (int i = 0; i < zarray_size(detections); i++) {
+            apriltag_detection_t *det;
+            zarray_get(detections, i, &det);
+            info.det = det;
+
+            apriltag_pose_t pose;
+            double err = estimate_tag_pose(&info, &pose);
+
+            Eigen::Matrix4f tagPoseInCamera = poseAprilTagToEigen(pose);
+            Eigen::Matrix4f cameraPoseInTag = tagPoseInCamera.inverse();
+            
+            // Transform to global robot pose
+            Eigen::Matrix4f robotPoseInGlobal = constants::AprilTagPosesInGlobal[det->id-1] * cameraPoseInTag * constants::Cameras[id_].RobotPoseInCamera;
+
+            // Output or Store Estimate
+            std::lock_guard<std::mutex> lock(output_mutex);
+            std::cout << "Cam " << id_ << " Tag " << det->id << " TS: " << ts << " Pose Z: " << robotPoseInGlobal(2,3) << "\n";
+        }
+        apriltag_detections_destroy(detections);
+    }
+
+    std::shared_ptr<Camera> camera_;
+    int id_;
+    apriltag_detector_t *td_;
+    std::map<const FrameBuffer *, uint8_t *> mappedBuffers_;
+    std::vector<std::unique_ptr<Request>> requests_;
+    static std::mutex output_mutex;
+};
+
+std::mutex CameraProcessor::output_mutex;
+
+int main() {
+    // 1. Initialize Camera Manager
+    std::unique_ptr<CameraManager> cm = std::make_unique<CameraManager>();
+    cm->start();
+
+    // 2. Identify and Sort Cameras for Consistency
+    std::vector<std::shared_ptr<Camera>> cameras = cm->cameras();
+    std::sort(cameras.begin(), cameras.end(), [](auto const &a, auto const &b) {
+        return a->id() < b->id(); // Sort by hardware path
+    });
+
+    if (cameras.size() < 2) {
+        std::cerr << "Need 2 cameras, found " << cameras.size() << "\n";
         return -1;
     }
 
-    if (!cap1.isOpened()) {
-        std::cerr << "Failed to open back camera\n";
-        return -1;
-    }
-
+    // 3. Setup AprilTag Detector
     apriltag_family_t *tf = tag36h11_create();
     apriltag_detector_t *td = apriltag_detector_create();
     apriltag_detector_add_family(td, tf);
-
     td->quad_decimate = 1.0;
-    td->quad_sigma = 0.0;
-    td->nthreads = 4;   // may need to adjust this down
-    td->refine_edges = 1;
+    td->nthreads = 4;
 
-    apriltag_detection_info_t info0;
-    info0.tagsize = constants::tagsize;
-    info0.fx = constants::Cameras[0].fx;
-    info0.fy = constants::Cameras[0].fy;
-    info0.cx = constants::Cameras[0].cx;
-    info0.cy = constants::Cameras[0].cy;
+    // 4. Start Capture Threads
+    CameraProcessor frontCam(cameras[0], 0, td);
+    CameraProcessor backCam(cameras[1], 1, td);
 
-    apriltag_detection_info_t info1;
-    info1.tagsize = constants::tagsize;
-    info1.fx = constants::Cameras[1].fx;
-    info1.fy = constants::Cameras[1].fy;
-    info1.cx = constants::Cameras[1].cx;
-    info1.cy = constants::Cameras[1].cy;
+    frontCam.run();
+    backCam.run();
 
-    std::vector<RobotPoseEstimate> poseEstimates;
-    RobotPoseEstimate current_estimate0;
-    RobotPoseEstimate current_estimate1;
-
+    // Keep main thread alive
     while (true) {
-        cv::Mat frame0, frame1;
+        std::this_thread::sleep_for(std::chrono::milisecons(250));
 
-        cap0 >> frame0;
-        cap1 >> frame1;
+        if (_kbhit()) {         // Check if a key has been pressed
+            char key = _getch(); // Get the pressed key
 
-        if (frame0.empty() || frame1.empty()) {
-            std::cerr << "Frame grab failed\n";
-            continue;
+            if (key == 27) {    // ASCII value for 'Esc' key is 27
+                break;          // Exit the while loop
+            }
         }
+    }
 
-        std::cout << "Frame0 size bytes: " << frame0.total() * frame0.elemSize() << "\n"; // Temp for debugging. Check to see if the Luckfox has actually delivered [8 bytes ts][Y8 pixel data]. Expected output: 1,382,408
-        std::cout << "Frame1 size bytes: " << frame1.total() * frame1.elemSize() << "\n";
-
-        // Extract timestamps and grayscale pointers
-        uint8_t* gray0;
-        uint8_t* gray1;
-
-        current_estimate0.timestamp = extract_timestamp_and_ptr(frame0, gray0);
-        current_estimate1.timestamp = extract_timestamp_and_ptr(frame1, gray1);
-
-        image_u8_t im0{};
-        im0.width  = frame0.cols;
-        im0.height = frame0.rows;
-        im0.stride = frame0.cols; // Y8 = 1 byte per pixel
-        im0.buf    = gray0;
-
-        image_u8_t im1{};
-        im1.width  = frame1.cols;
-        im1.height = frame1.rows;
-        im1.stride = frame1.cols;
-        im1.buf    = gray1;
-
-        zarray_t *detections0 = apriltag_detector_detect(td, &im0);
-        zarray_t *detections1 = apriltag_detector_detect(td, &im1);
-
-        for (int i = 0; i < zarray_size(detections0); i++) {
-            apriltag_detection_t *det;
-            zarray_get(detections0, i, &det);
-
-
-            info0.det = det;
-
-            apriltag_pose_t pose;
-            double err = estimate_tag_pose(&info0, &pose);
-
-            Eigen::Matrix4f tagPoseInCamera = poseAprilTagToEigen(pose);
-            Eigen::Matrix4f cameraPoseInTag = tagPoseInCamera.inverse();
-
-            Eigen::Matrix4f robotPoseInGlobal = constants::AprilTagPosesInGlobal[det->id-1] * cameraPoseInTag * constants::Cameras[0].RobotPoseInCamera;
-
-            current_estimate0.err = err;
-            current_estimate0.pose = robotPoseInGlobal;
-
-            poseEstimates.push_back(current_estimate0);
-        }
-
-        for (int i = 0; i < zarray_size(detections1); i++) {
-            apriltag_detection_t *det;
-            zarray_get(detections1, i, &det);
-
-            info1.det = det;
-
-            apriltag_pose_t pose;
-            double err = estimate_tag_pose(&info1, &pose);
-
-            Eigen::Matrix4f tagPoseInCamera = poseAprilTagToEigen(pose);
-            Eigen::Matrix4f cameraPoseInTag = tagPoseInCamera.inverse();
-
-            Eigen::Matrix4f robotPoseInGlobal = constants::AprilTagPosesInGlobal[det->id-1] * cameraPoseInTag * constants::Cameras[1].RobotPoseInCamera;
-
-            current_estimate1.err = err;
-            current_estimate1.pose = robotPoseInGlobal;
-
-            poseEstimates.push_back(current_estimate1);
-        }
-
-        //std::cout << "Detections: " << zarray_size(detections) << "\n";
-        apriltag_detections_destroy(detections0);
-        apriltag_detections_destroy(detections1);
-        };
-
+    // Cleanup (in a real app, handle SIGINT)
     apriltag_detector_destroy(td);
     tag36h11_destroy(tf);
-
     return 0;
-
 }
