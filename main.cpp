@@ -115,26 +115,27 @@ private:
         info.cx = constants::Cameras[id_].cx;
         info.cy = constants::Cameras[id_].cy;
 
-        for (int i = 0; i < zarray_size(detections); i++) {
+        for (int i = 0; i < zarray_size(detections0); i++) {
             apriltag_detection_t *det;
-            zarray_get(detections, i, &det);
-            info.det = det;
+            zarray_get(detections0, i, &det);
 
+            // Safety: Check if tag ID is within our known field tags (1-32)
+            if (det->id < 1 || det->id > 32) continue;
+
+            info0.det = det;
             apriltag_pose_t pose;
-            double err = estimate_tag_pose(&info, &pose);
+            double err = estimate_tag_pose(&info0, &pose);
 
             Eigen::Matrix4f tagPoseInCamera = poseAprilTagToEigen(pose);
             Eigen::Matrix4f cameraPoseInTag = tagPoseInCamera.inverse();
-            
-            // Transform to global robot pose
-            Eigen::Matrix4f robotPoseInGlobal = constants::AprilTagPosesInGlobal[det->id-1] * cameraPoseInTag * constants::Cameras[id_].RobotPoseInCamera;
 
-            // Output or Store Estimate
-            std::lock_guard<std::mutex> lock(output_mutex);
-            std::cout << "Cam " << id_ << " Tag " << det->id << " TS: " << ts << " Pose Z: " << robotPoseInGlobal(2,3) << "\n";
+            // Use index [det->id - 1] safely now
+            Eigen::Matrix4f robotPoseInGlobal = constants::AprilTagPosesInGlobal[det->id-1] * cameraPoseInTag * constants::Cameras[0].RobotPoseInCamera;
+
+            current_estimate0.err = err;
+            current_estimate0.pose = robotPoseInGlobal;
+            poseEstimates.push_back(current_estimate0);
         }
-        apriltag_detections_destroy(detections);
-    }
 
     std::shared_ptr<Camera> camera_;
     int id_;
