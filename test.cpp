@@ -76,7 +76,7 @@ public:
         cv::Mat thresholded;
 
         // 2. Apply Adaptive Thresholding
-        cv::threshold(gray, thresholded, 150.0, 255.0, cv::THRESH_BINARY);
+        cv::threshold(gray, thresholded, 200.0, 255.0, cv::THRESH_BINARY);
 
         // 3. (Optional) Show the thresholded view to see what the computer sees
         cv::imshow("Threshold", thresholded);
