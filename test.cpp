@@ -133,6 +133,11 @@ int main() {
     apriltag_detector_t *td = apriltag_detector_create();
     apriltag_detector_add_family(td, tf);
 
+    td->quad_decimate = 1.0;
+    td->quad_sigma = 0.0;
+    td->nthreads = 1;   // may need to adjust this down
+    td->refine_edges = 1;
+
     // Note: For testing, we run one processor. 
     // OpenCV HighGUI (imshow) works best when called from a single thread 
     // or when waitKey is handled correctly.
