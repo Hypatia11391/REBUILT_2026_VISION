@@ -36,6 +36,9 @@ public:
         streamConfig.size.width = 1456; 
         streamConfig.size.height = 1088;
         streamConfig.pixelFormat = formats::YUV420; 
+        camera_->configure(config.get());
+
+        this->stride_ = streamConfig.stride;
 
         if (config->validate() == CameraConfiguration::Invalid) return;
         camera_->configure(config.get());
@@ -67,7 +70,7 @@ public:
         uint8_t *data = mappedBuffers_[buffer];
 
         // 1. Create a Grayscale OpenCV Mat from the Y-plane
-        cv::Mat gray(1088, 1456, CV_8UC1, data);
+        cv::Mat gray(1088, 1456, CV_8UC1, data, stride_);
         
         // 2. Convert to BGR so we can draw colored lines/text
         cv::Mat visual;
