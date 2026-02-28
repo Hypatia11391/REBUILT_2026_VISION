@@ -17,7 +17,7 @@
 #include <mutex>
 #include <algorithm>
 #include <sys/mman.h>
-#include <conio.h>
+//#include <conio.h>
 
 #include "header.h"
 
@@ -180,13 +180,13 @@ int main() {
     while (true) {
         std::this_thread::sleep_for(std::chrono::milisecons(250));
 
-        if (_kbhit()) {         // Check if a key has been pressed
+        /*if (_kbhit()) {         // Check if a key has been pressed
             char key = _getch(); // Get the pressed key
 
             if (key == 27) {    // ASCII value for 'Esc' key is 27
                 break;          // Exit the while loop
             }
-        }
+        }*/
     }
 
     // Cleanup (in a real app, handle SIGINT)

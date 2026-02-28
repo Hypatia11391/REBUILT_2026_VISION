@@ -20,7 +20,7 @@ namespace constants {
     // Define a datatype to hold camera info
     struct CameraInfo {
         float fx, fy, cx, cy; // Intrinsics
-        Eigen::Matrix4f RobotPoseInCamera(4, 4); // Because of how this is used in algorithm it is faster to store it as the robot pose in the camera frame for fewer inversions
+        Eigen::Matrix4f RobotPoseInCamera; // Because of how this is used in algorithm it is faster to store it as the robot pose in the camera frame for fewer inversions
     };
 
     // Define the tag size (in meters)
