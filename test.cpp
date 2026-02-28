@@ -41,6 +41,7 @@ public:
         camera_->configure(config.get());
 
         stream_ = streamConfig.stream();
+        stride_ = streamConfig.stride;
         allocator_ = new FrameBufferAllocator(camera_);
         allocator_->allocate(stream_);
 
@@ -107,6 +108,7 @@ private:
     int id_;
     apriltag_detector_t *td_;
     Stream *stream_;
+    unsigned int stride_;
     FrameBufferAllocator *allocator_;
     std::map<const FrameBuffer *, uint8_t *> mappedBuffers_;
     std::vector<std::unique_ptr<Request>> requests_;
