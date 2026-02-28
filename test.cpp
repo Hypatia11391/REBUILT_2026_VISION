@@ -89,14 +89,14 @@ public:
             .buf = thresholded.data
         };
 
-        zarray_t *detections = apriltag_detector_detect(td_, &im);
+        //zarray_t *detections = apriltag_detector_detect(td_, &im);
 
         // 2. Convert to BGR so we can draw colored lines/text
         cv::Mat visual;
         cv::cvtColor(gray, visual, cv::COLOR_GRAY2BGR);
 
         // 3. AprilTag Detection
-        image_u8_t im{ .width = 1456, .height = 1088, .stride = 1456, .buf = data };
+        //image_u8_t im{ .width = 1456, .height = 1088, .stride = 1456, .buf = data };
         zarray_t *detections = apriltag_detector_detect(td_, &im);
 
         // DEBUG: Print if anything is found at all
