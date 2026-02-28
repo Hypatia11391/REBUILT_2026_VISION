@@ -80,6 +80,11 @@ public:
         image_u8_t im{ .width = 1456, .height = 1088, .stride = 1456, .buf = data };
         zarray_t *detections = apriltag_detector_detect(td_, &im);
 
+        // DEBUG: Print if anything is found at all
+        if (zarray_size(detections) > 0) {
+            std::cout << "Detected " << zarray_size(detections) << " tags!" << std::endl;
+        }
+
         for (int i = 0; i < zarray_size(detections); i++) {
             apriltag_detection_t *det;
             zarray_get(detections, i, &det);
