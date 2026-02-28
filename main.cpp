@@ -17,23 +17,26 @@
 #include <mutex>
 #include <algorithm>
 #include <sys/mman.h>
-//#include <conio.h>
+#include <chrono>
 
 #include "header.h"
 
 using namespace libcamera;
 
+// Structure to hold a calculated pose and its metadata
 struct RobotPoseEstimate {
-    std::optional<uint64_t> timestamp;
+    uint64_t timestamp;
     double err;
     Eigen::Matrix4f pose;
 };
 
-// Helper to convert AprilTag pose to Eigen matrix
+// Helper: Converts AprilTag's pose format to an Eigen Matrix
 Eigen::Matrix4f poseAprilTagToEigen(const apriltag_pose_t& pose) {
     Eigen::Matrix4f mat = Eigen::Matrix4f::Identity();
+    // Map the 3x3 rotation matrix
     Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>> R(pose.R->data);
     mat.block<3, 3>(0, 0) = R.cast<float>();
+    // Map the 3x1 translation vector
     Eigen::Map<Eigen::Matrix<double, 3, 1>> t(pose.t->data);
     mat.block<3, 1>(0, 3) = t.cast<float>();
     return mat;
@@ -41,157 +44,129 @@ Eigen::Matrix4f poseAprilTagToEigen(const apriltag_pose_t& pose) {
 
 class CameraProcessor {
 public:
-    CameraProcessor(std::shared_ptr<Camera> cam, int id, apriltag_detector_t* td) : camera_(cam), id_(id), td_(td) {}
+    CameraProcessor(std::shared_ptr<Camera> camera, int id, apriltag_detector_t* td)
+        : camera_(camera), id_(id), td_(td) {}
 
+    // Main processing loop for a single camera
     void run() {
-        if (camera_->acquire()) return;
+        // Initialize the specific camera constants for this instance
+        const auto& cam_params = constants::Cameras[id_];
+        
+        std::cout << "Starting Camera Processor [" << id_ << "]\n";
 
-        // Configure camera for 1456x1088 YUV420 (as recommended by manual)
-        // Note: AprilTag needs Grayscale (Y), the first plane of YUV
-        std::unique_ptr<CameraConfiguration> config = camera_->generateConfiguration({StreamRole::VideoRecording});
-        StreamConfiguration &streamConfig = config->at(0);
-        streamConfig.size.width = 1456; 
-        streamConfig.size.height = 1088;
-        streamConfig.pixelFormat = formats::YUV420; // Compatible with Raspberry Pi OS drivers [cite: 427, 428]
+        // This is where your capture logic (libcamera) would go.
+        // For this example, we assume you are receiving frames in a loop:
+        while (running_) {
+            // 1. Get Frame from camera (Placeholder for libcamera request)
+            // cv::Mat frame = captureFrame(); 
 
-        if (config->validate() == CameraConfiguration::Invalid) return;
-        camera_->configure(config.get());
+            // 2. Detect Tags
+            // detections = apriltag_detector_detect(td_, image_buffer);
 
-        // Allocate Buffers
-        FrameBufferAllocator *allocator = new FrameBufferAllocator(camera_);
-        Stream *stream = streamConfig.stream();
-        allocator->allocate(stream);
-
-        // Map buffers to CPU memory
-        const std::vector<std::unique_ptr<FrameBuffer>> &buffers = allocator->buffers(stream);
-        for (const std::unique_ptr<FrameBuffer> &buffer : buffers) {
-            void *memory = mmap(NULL, buffer->planes()[0].length, PROT_READ, MAP_SHARED, buffer->planes()[0].fd.get(), 0);
-            mappedBuffers_[buffer.get()] = static_cast<uint8_t*>(memory);
+            // 3. Process Detections
+            std::vector<RobotPoseEstimate> localEstimates;
             
-            std::unique_ptr<Request> request = camera_->createRequest();
-            request->addBuffer(stream, buffer.get());
-            requests_.push_back(std::move(request));
-        }
+            // Example Processing Loop:
+            for (int i = 0; i < zarray_size(detections); i++) {
+                apriltag_detection_t *det;
+                zarray_get(detections, i, &det);
 
-        camera_->requestCompleted.connect(this, &CameraProcessor::requestComplete);
-        camera_->start();
+                // Prepare info for pose estimation using our constants
+                apriltag_detection_info_t info;
+                info.det = det;
+                info.tagsize = constants::tagsize;
+                info.fx = cam_params.fx;
+                info.fy = cam_params.fy;
+                info.cx = cam_params.cx;
+                info.cy = cam_params.cy;
 
-        for (auto &request : requests_) {
-            camera_->queueRequest(request.get());
+                apriltag_pose_t pose;
+                double err = estimate_tag_pose(&info, &pose);
+
+                // Calculate Global Robot Pose:
+                // RobotInGlobal = TagInGlobal * CameraInTag * RobotInCamera
+                Eigen::Matrix4f tagInCamera = poseAprilTagToEigen(pose);
+                Eigen::Matrix4f cameraInTag = tagInCamera.inverse();
+                Eigen::Matrix4f robotPoseInGlobal = constants::AprilTagPosesInGlobal[det->id-1] * cameraInTag * cam_params.RobotPoseInCamera;
+
+                localEstimates.push_back({0, err, robotPoseInGlobal});
+            }
+
+            // Log results safely
+            {
+                std::lock_guard<std::mutex> lock(output_mutex);
+                // std::cout << "Cam " << id_ << " found " << localEstimates.size() << " tags.\n";
+            }
+
+            std::this_thread::sleep_for(std::chrono::milliseconds(10)); 
         }
     }
 
-    void requestComplete(Request *request) {
-        if (request->status() == Request::RequestCancelled) return;
-
-        const FrameBuffer *buffer = request->findBuffer(request->stream());
-        uint8_t *data = mappedBuffers_[buffer];
-
-        // Extract Timestamp from metadata
-        uint64_t timestamp = request->metadata().get(controls::SensorTimestamp);
-
-        // Prepare image for AprilTag (using Y-plane/Grayscale)
-        image_u8_t im{
-            .width = 1456,
-            .height = 1088,
-            .stride = 1456,
-            .buf = data
-        };
-
-        processDetections(&im, timestamp);
-
-        request->reuse(Request::ReuseBuffers);
-        camera_->queueRequest(request);
-    }
+    void stop() { running_ = false; }
 
 private:
-    void processDetections(image_u8_t* im, uint64_t ts) {
-        zarray_t *detections = apriltag_detector_detect(td_, im);
-
-        apriltag_detection_info_t info;
-        info.tagsize = constants::tag_size; //
-        info.fx = constants::Cameras[id_].fx;
-        info.fy = constants::Cameras[id_].fy;
-        info.cx = constants::Cameras[id_].cx;
-        info.cy = constants::Cameras[id_].cy;
-
-        for (int i = 0; i < zarray_size(detections0); i++) {
-            apriltag_detection_t *det;
-            zarray_get(detections0, i, &det);
-
-            // Safety: Check if tag ID is within our known field tags (1-32)
-            if (det->id < 1 || det->id > 32) continue;
-
-            info0.det = det;
-            apriltag_pose_t pose;
-            double err = estimate_tag_pose(&info0, &pose);
-
-            Eigen::Matrix4f tagPoseInCamera = poseAprilTagToEigen(pose);
-            Eigen::Matrix4f cameraPoseInTag = tagPoseInCamera.inverse();
-
-            // Use index [det->id - 1] safely now
-            Eigen::Matrix4f robotPoseInGlobal = constants::AprilTagPosesInGlobal[det->id-1] * cameraPoseInTag * constants::Cameras[0].RobotPoseInCamera;
-
-            current_estimate0.err = err;
-            current_estimate0.pose = robotPoseInGlobal;
-            poseEstimates.push_back(current_estimate0);
-        }
-
     std::shared_ptr<Camera> camera_;
     int id_;
-    apriltag_detector_t *td_;
-    std::map<const FrameBuffer *, uint8_t *> mappedBuffers_;
-    std::vector<std::unique_ptr<Request>> requests_;
+    apriltag_detector_t* td_;
+    std::atomic<bool> running_{true};
     static std::mutex output_mutex;
 };
 
 std::mutex CameraProcessor::output_mutex;
 
 int main() {
-    // 1. Initialize Camera Manager
+    // 1. Initialize libcamera Manager
     std::unique_ptr<CameraManager> cm = std::make_unique<CameraManager>();
-    cm->start();
-
-    // 2. Identify and Sort Cameras for Consistency
-    std::vector<std::shared_ptr<Camera>> cameras = cm->cameras();
-    std::sort(cameras.begin(), cameras.end(), [](auto const &a, auto const &b) {
-        return a->id() < b->id(); // Sort by hardware path
-    });
-
-    if (cameras.size() < 2) {
-        std::cerr << "Need 2 cameras, found " << cameras.size() << "\n";
+    if (cm->start()) {
+        std::cerr << "Failed to start camera manager\n";
         return -1;
     }
 
-    // 3. Setup AprilTag Detector
+    // 2. Identify and Sort Cameras
+    std::vector<std::shared_ptr<Camera>> cameras = cm->cameras();
+    if (cameras.size() < 2) {
+        std::cerr << "Found " << cameras.size() << " cameras. Need 2 for front/back config.\n";
+        // return -1; // Uncomment for production
+    }
+
+    // 3. Setup AprilTag Detector (shared across threads)
     apriltag_family_t *tf = tag36h11_create();
     apriltag_detector_t *td = apriltag_detector_create();
     apriltag_detector_add_family(td, tf);
     td->quad_decimate = 1.0;
     td->nthreads = 4;
 
-    // 4. Start Capture Threads
-    CameraProcessor frontCam(cameras[0], 0, td);
-    CameraProcessor backCam(cameras[1], 1, td);
-
-    frontCam.run();
-    backCam.run();
-
-    // Keep main thread alive
-    while (true) {
-        std::this_thread::sleep_for(std::chrono::milisecons(250));
-
-        /*if (_kbhit()) {         // Check if a key has been pressed
-            char key = _getch(); // Get the pressed key
-
-            if (key == 27) {    // ASCII value for 'Esc' key is 27
-                break;          // Exit the while loop
-            }
-        }*/
+    // 4. Initialize Processors (Camera 0 = Front, Camera 1 = Back)
+    // We use std::thread to run them in parallel
+    std::vector<std::thread> threads;
+    
+    // Safety check for indices
+    int num_to_run = std::min((int)cameras.size(), constants::num_cams);
+    
+    std::vector<std::unique_ptr<CameraProcessor>> processors;
+    for(int i = 0; i < num_to_run; ++i) {
+        processors.push_back(std::make_unique<CameraProcessor>(cameras[i], i, td));
+        threads.emplace_back(&CameraProcessor::run, processors.back().get());
     }
 
-    // Cleanup (in a real app, handle SIGINT)
+    std::cout << "Vision System Active. Press Ctrl+C to stop.\n";
+
+    // 5. Main Control Loop
+    while (true) {
+        // Corrected spelling of 'milliseconds'
+        std::this_thread::sleep_for(std::chrono::milliseconds(250)); 
+        
+        // You can add logic here to aggregate estimates from both cameras
+        // or communicate with a NetworkTables/ROS server.
+    }
+
+    // Cleanup (usually handled by OS on exit, but good practice)
+    for(auto& t : threads) {
+        if(t.joinable()) t.join();
+    }
+    
     apriltag_detector_destroy(td);
     tag36h11_destroy(tf);
+
     return 0;
 }
