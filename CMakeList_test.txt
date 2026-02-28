@@ -1,0 +1,38 @@
+cmake_minimum_required(VERSION 3.10)
+project(VisionSystemTest)
+
+# Set C++ standard to 17 (Required for inline constants in header.h)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# 1. Find Dependencies
+find_package(OpenCV REQUIRED COMPONENTS core imgproc highgui videoio)
+find_package(Eigen3 REQUIRED)
+find_package(PkgConfig REQUIRED)
+
+# Use PkgConfig to find libcamera and apriltag
+pkg_check_modules(LIBCAMERA REQUIRED libcamera)
+pkg_check_modules(APRILTAG REQUIRED apriltag)
+
+# 2. Include Directories
+include_directories(
+    ${OpenCV_INCLUDE_DIRS}
+    ${EIGEN3_INCLUDE_DIR}
+    ${LIBCAMERA_INCLUDE_DIRS}
+    ${APRILTAG_INCLUDE_DIRS}
+    . # Current directory for header.h
+)
+
+# 3. Define the Executable
+add_executable(vision_test test.cpp)
+
+# 4. Link Libraries
+target_link_libraries(vision_test
+    ${OpenCV_LIBS}
+    ${LIBCAMERA_LIBRARIES}
+    ${APRILTAG_LIBRARIES}
+    Eigen3::Eigen
+)
+
+# Optional: Add compiler flags for optimization on Raspberry Pi
+target_compile_options(vision_test PRIVATE -O3 -march=native)
