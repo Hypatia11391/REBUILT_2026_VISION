@@ -61,7 +61,7 @@ public:
             cv::Mat frame = captureFrame(); 
 
             // 2. Detect Tags
-            detections = apriltag_detector_detect(td_, image_buffer);
+            zarray_t detections = apriltag_detector_detect(td_, image_buffer);
 
             // 3. Process Detections
             std::vector<RobotPoseEstimate> localEstimates;
