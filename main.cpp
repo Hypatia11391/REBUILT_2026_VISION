@@ -57,7 +57,7 @@ class VisualCameraProcessor {
         StreamConfiguration &streamConfig = config->at(0);
         streamConfig.size.width = 1456; 
         streamConfig.size.height = 1088;
-        streamConfig.pixelFormat = formats::YUV420; 
+        streamConfig.pixelFormat = formats::R8; 
         
         if (config->validate() == CameraConfiguration::Invalid) return;
         camera_->configure(config.get());
@@ -69,32 +69,27 @@ class VisualCameraProcessor {
 
         // Iterate through buffers and map the TOTAL length of all planes
         for (const std::unique_ptr<FrameBuffer> &buffer : allocator_->buffers(stream_)) {
-            size_t total_length = 0;
-            for (const auto &plane : buffer->planes()) {
-                total_length += plane.length;
-            }
-
-            // Map the entire length using the FD from the first plane
-            void *memory = mmap(NULL, total_length, PROT_READ, MAP_SHARED, 
+            // R8 is a single plane, but we map the whole plane length for safety
+            size_t length = buffer->planes()[0].length;
+            void *memory = mmap(NULL, length, PROT_READ, MAP_SHARED, 
                                 buffer->planes()[0].fd.get(), 0);
             
             if (memory == MAP_FAILED) {
-                std::cerr << "Fatal: Failed to mmap camera buffer!" << std::endl;
+                std::cerr << "Fatal: mmap failed" << std::endl;
                 continue;
             }
-
             mappedBuffers_[buffer.get()] = static_cast<uint8_t*>(memory);
-            
-            std::unique_ptr<Request> request = camera_->createRequest();
-            request->addBuffer(stream_, buffer.get());
-            requests_.push_back(std::move(request));
+                
+                std::unique_ptr<Request> request = camera_->createRequest();
+                request->addBuffer(stream_, buffer.get());
+                requests_.push_back(std::move(request));
+            }
+
+            camera_->requestCompleted.connect(this, &VisualCameraProcessor::requestComplete);
+            camera_->start();
+
+            for (auto &request : requests_) camera_->queueRequest(request.get());
         }
-
-        camera_->requestCompleted.connect(this, &VisualCameraProcessor::requestComplete);
-        camera_->start();
-
-        for (auto &request : requests_) camera_->queueRequest(request.get());
-    }
 
     void requestComplete(Request *request) {
         if (request->status() == Request::RequestCancelled) return;
@@ -111,7 +106,7 @@ class VisualCameraProcessor {
         cv::Mat gray(1088, 1456, CV_8UC1, data, stride_);
 
         // 2. Apply Adaptive Thresholding
-        cv::threshold(gray, gray, 100.0, 255.0, cv::THRESH_BINARY);
+        //cv::threshold(gray, gray, 100.0, 255.0, cv::THRESH_BINARY);
 
         // 4. Update AprilTag to use the THRESHOLDED data
         image_u8_t im{
