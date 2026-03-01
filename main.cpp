@@ -180,6 +180,7 @@ private:
             double err = estimate_tag_pose(&info, &pose);
 
             Eigen::Matrix4f tagPoseInCamera = poseAprilTagToEigen(pose);
+            std::cout << tagPoseInCamera << std::endl;
             Eigen::Matrix4f cameraPoseInTag = tagPoseInCamera.inverse();
             Eigen::Matrix4f robotPoseInGlobal = constants::AprilTagPosesInGlobal[det->id-1] * cameraPoseInTag * constants::Cameras[id_].RobotPoseInCamera;
 
