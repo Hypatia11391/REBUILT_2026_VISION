@@ -201,16 +201,25 @@ int main() {
     if (cameras.empty()) return -1;
 
     apriltag_family_t *tf = tag36h11_create();
-    apriltag_detector_t *td = apriltag_detector_create();
-    apriltag_detector_add_family(td, tf);
+    apriltag_detector_t *td0 = apriltag_detector_create();
+    apriltag_detector_add_family(td0, tf);
 
-    td->quad_decimate = 1.0;
-    td->quad_sigma = 0.0;
-    td->nthreads = 4;   // may need to adjust this down
-    td->refine_edges = 1;
+    td0->quad_decimate = 1.0;
+    td0->quad_sigma = 0.0;
+    td0->nthreads = 4;   // may need to adjust this down
+    td0->refine_edges = 1;
 
-    VisualCameraProcessor Cam0(cameras[0], 0, td);
-    VisualCameraProcessor Cam1(cameras[1], 1, td);
+    apriltag_family_t *tf = tag36h11_create();
+    apriltag_detector_t *td1 = apriltag_detector_create();
+    apriltag_detector_add_family(td1, tf);
+
+    td1->quad_decimate = 1.0;
+    td1->quad_sigma = 0.0;
+    td1->nthreads = 4;   // may need to adjust this down
+    td1->refine_edges = 1;
+
+    VisualCameraProcessor Cam0(cameras[0], 0, td0);
+    VisualCameraProcessor Cam1(cameras[1], 1, td1);
 
     Cam0.run();
     Cam1.run();
