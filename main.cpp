@@ -57,7 +57,7 @@ class VisualCameraProcessor {
         StreamConfiguration &streamConfig = config->at(0);
         streamConfig.size.width = 1456; 
         streamConfig.size.height = 1088;
-        streamConfig.pixelFormat = formats::YUV420; 
+        streamConfig.pixelFormat = formats::R8; 
         
         if (config->validate() == CameraConfiguration::Invalid) return;
         camera_->configure(config.get());
@@ -103,6 +103,7 @@ class VisualCameraProcessor {
         uint64_t timestamp = metadata ? static_cast<uint64_t>(*metadata) : 0;
 
         // 1. Create a Grayscale OpenCV Mat from the Y-plane
+        cv::Mat gray;
         cv::Mat gray(1088, 1456, CV_8UC1, data, stride_);
 
         cv::imshow("gray", gray);
