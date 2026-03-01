@@ -209,7 +209,6 @@ int main() {
     td0->nthreads = 4;   // may need to adjust this down
     td0->refine_edges = 1;
 
-    apriltag_family_t *tf = tag36h11_create();
     apriltag_detector_t *td1 = apriltag_detector_create();
     apriltag_detector_add_family(td1, tf);
 
