@@ -50,9 +50,10 @@ class VisualCameraProcessor {
     VisualCameraProcessor(std::shared_ptr<Camera> cam, int id, apriltag_detector_t* td) 
         : camera_(cam), id_(id), td_(td), stream_(nullptr) {}
 
-    void run() {
+void run() {
         if (camera_->acquire()) return;
 
+        // ... [Configuration setup remains the same] ...
         std::unique_ptr<CameraConfiguration> config = camera_->generateConfiguration({StreamRole::VideoRecording});
         StreamConfiguration &streamConfig = config->at(0);
         streamConfig.size.width = 1456; 
@@ -60,24 +61,40 @@ class VisualCameraProcessor {
         streamConfig.pixelFormat = formats::YUV420; 
         camera_->configure(config.get());
 
+        // Landmark: Capturing the stride for OpenCV/AprilTag
         this->stride_ = streamConfig.stride;
 
-        if (config->validate() == CameraConfiguration::Invalid) return;
-        camera_->configure(config.get());
-
         stream_ = streamConfig.stream();
-        stride_ = streamConfig.stride;
         allocator_ = new FrameBufferAllocator(camera_);
         allocator_->allocate(stream_);
 
+        // --- START OF THE FIXED LOOP ---
         for (const std::unique_ptr<FrameBuffer> &buffer : allocator_->buffers(stream_)) {
-            void *memory = mmap(NULL, buffer->planes()[0].length, PROT_READ, MAP_SHARED, buffer->planes()[0].fd.get(), 0);
+            
+            // 1. Calculate the TOTAL length of the buffer (Y + U + V planes combined)
+            size_t total_length = 0;
+            for (const auto &plane : buffer->planes()) {
+                total_length += plane.length;
+            }
+
+            // 2. Map the entire buffer length using the File Descriptor (fd) of the first plane
+            // This prevents the Segmentation Fault by ensuring all YUV data is in bounds
+            void *memory = mmap(NULL, total_length, PROT_READ, MAP_SHARED, 
+                                buffer->planes()[0].fd.get(), 0);
+            
+            if (memory == MAP_FAILED) {
+                std::cerr << "Fatal: Failed to mmap camera buffer!" << std::endl;
+                continue;
+            }
+
             mappedBuffers_[buffer.get()] = static_cast<uint8_t*>(memory);
             
+            // Landmark: Creating the request for the camera
             std::unique_ptr<Request> request = camera_->createRequest();
             request->addBuffer(stream_, buffer.get());
             requests_.push_back(std::move(request));
         }
+        // --- END OF THE FIXED LOOP ---
 
         camera_->requestCompleted.connect(this, &VisualCameraProcessor::requestComplete);
         camera_->start();
