@@ -15,7 +15,7 @@ namespace constants {
     inline constexpr float tagsize = 0.1651f; // Alias to match your main.cpp usage
     inline constexpr int num_cams = 2;
 
-    // Helper to create identity or custom matrices for the array
+    /*// Helper to create identity or custom matrices for the array
     inline Eigen::Matrix4f make_identity() { return Eigen::Matrix4f::Identity(); }
     
     // Helper to create the specific placeholder matrix you used in CameraInfo
@@ -23,13 +23,13 @@ namespace constants {
         Eigen::Matrix4f m = Eigen::Matrix4f::Zero();
         m(3,3) = 1.0f;
         return m;
-    }
+    }*/
 
     // Camera Configuration
     // Fixed: Using inline const for Eigen compatibility
     inline const std::array<CameraInfo, num_cams> Cameras = {{
-        {1000.f, 1000.f, 960.f, 540.f, make_placeholder_pose()},
-        {1000.f, 1000.f, 960.f, 540.f, make_placeholder_pose()}
+        {1000.f, 1000.f, 960.f, 540.f, Eigen::Matrix4f::Identity();},
+        {1000.f, 1000.f, 960.f, 540.f, Eigen::Matrix4f::Identity();}
     }};
 
     // AprilTag Field Poses (ID = index + 1)
