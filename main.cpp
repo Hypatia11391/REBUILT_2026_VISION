@@ -142,7 +142,7 @@ public:
                         cv::FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(0, 255, 255), 2);
         }
 
-        std::vector<RobotPoseEstimate> poseEstimates = processDetections(&im);
+        std::vector<RobotPoseEstimate> poseEstimates = processDetections(&im, timestamp);
 
         // 4. Show the frame in a window named after the Camera ID
         cv::imshow("Camera " + std::to_string(id_), visual);
@@ -154,7 +154,7 @@ public:
     }
 
 private:
-    std::vector<RobotPoseEstimate> processDetections(image_u8_t* im/*, uint64_t ts*/) {
+    std::vector<RobotPoseEstimate> processDetections(image_u8_t* im, uint64_t ts) {
         std::vector<RobotPoseEstimate> poseEstimates;
         RobotPoseEstimate current_estimate;
 
@@ -189,7 +189,7 @@ private:
 
             current_estimate.err = err * range;
             current_estimate.pose = robotPoseInGlobal;
-            //current_estimate.timestamp = ts;
+            current_estimate.timestamp = ts;
 
             poseEstimates.push_back(current_estimate);
             
