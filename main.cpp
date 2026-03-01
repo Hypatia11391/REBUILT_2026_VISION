@@ -90,19 +90,12 @@ public:
         uint8_t *data = mappedBuffers_[buffer];
         uint64_t timestamp = static_cast<uint64_t>(request->metadata().get(controls::SensorTimestamp).value());
 
-        // 1. Create a Grayscale OpenCV Mat from the Y-plane
         cv::Mat gray(1088, 1456, CV_8UC1, data, stride_);
         
-        // 1. Create a processing Mat
         cv::Mat thresholded;
 
-        // 2. Apply Adaptive Thresholding
         cv::threshold(gray, thresholded, 100.0, 255.0, cv::THRESH_BINARY);
 
-        // 3. (Optional) Show the thresholded view to see what the computer sees
-        //cv::imshow("Threshold", thresholded);
-
-        // 4. Update AprilTag to use the THRESHOLDED data
         image_u8_t im{
             .width = thresholded.cols,
             .height = thresholded.rows,
@@ -167,8 +160,6 @@ private:
         info.cx = constants::Cameras[id_].cx;
         info.cy = constants::Cameras[id_].cy;
 
-        //std::cout << zarray_size(detections) << std::endl;
-
         for (int i = 0; i < zarray_size(detections); i++) {
             apriltag_detection_t *det;
             zarray_get(detections, i, &det);
@@ -192,11 +183,13 @@ private:
             current_estimate.pose = robotPoseInGlobal;
             current_estimate.timestamp = ts;
 
+            std::cout << ts << std::endl;
+
             poseEstimates.push_back(current_estimate);
             
             std::lock_guard<std::mutex> lock(output_mutex);
             //DEBUG print
-            std::cout << "Cam " << id_ << " | Tag " << det->id << " detected at Global Pose:\n" << robotPoseInGlobal << "\n" << std::endl;
+            //std::cout << "Cam " << id_ << " | Tag " << det->id << " detected at Global Pose:\n" << robotPoseInGlobal << "\n" << std::endl;
         }
         apriltag_detections_destroy(detections);
 
@@ -229,7 +222,7 @@ int main() {
 
     td->quad_decimate = 1.0;
     td->quad_sigma = 0.0;
-    td->nthreads = 4;   // may need to adjust this down
+    td->nthreads = 2;   // may need to adjust this
     td->refine_edges = 1;
 
     // Note: For testing, we run one processor. 
@@ -238,7 +231,7 @@ int main() {
     VisualCameraProcessor testCam(cameras[0], 0, td);
     testCam.run();
 
-    std::cout << "Test mode active. Close window or press Ctrl+C to exit.\n";
+    //std::cout << "Test mode active. Close window or press Ctrl+C to exit.\n";
     while (true) {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
