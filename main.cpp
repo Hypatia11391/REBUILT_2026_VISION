@@ -18,6 +18,8 @@
 #include <algorithm>
 #include <sys/mman.h>
 #include <chrono>
+#include <map>
+#include <optional>
 
 #include "header.h"
 
@@ -173,7 +175,10 @@ private:
     FrameBufferAllocator *allocator_;
     std::map<const FrameBuffer *, uint8_t *> mappedBuffers_;
     std::vector<std::unique_ptr<Request>> requests_;
+    static std::mutex output_mutex;
 };
+
+std::mutex VisualCameraProcessor::output_mutex;
 
 int main() {
     std::unique_ptr<CameraManager> cm = std::make_unique<CameraManager>();
