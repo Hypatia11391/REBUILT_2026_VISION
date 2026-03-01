@@ -183,8 +183,6 @@ private:
             current_estimate.pose = robotPoseInGlobal;
             current_estimate.timestamp = ts;
 
-            std::cout << ts << std::endl;
-
             poseEstimates.push_back(current_estimate);
             
             std::lock_guard<std::mutex> lock(output_mutex);
