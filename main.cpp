@@ -93,8 +93,6 @@ class VisualCameraProcessor {
 
         uint8_t *data = mappedBuffers_[buffer];
 
-        uint8_t *data = mappedBuffers_[buffer];
-        //uint64_t timestamp = static_cast<uint64_t>(request->metadata().get(controls::SensorTimestamp).value());
         auto metadata = request->metadata().get(controls::SensorTimestamp);
         uint64_t timestamp = metadata ? static_cast<uint64_t>(*metadata) : 0;
 
