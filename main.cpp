@@ -121,7 +121,7 @@ public:
         zarray_t *detections = apriltag_detector_detect(td_, &im);
 
         // DEBUG: Print if anything is found at all
-        if (zarray_size(detections) > 0) {
+        /*if (zarray_size(detections) > 0) {
             std::cout << "Detected " << zarray_size(detections) << " tags!" << std::endl;
         }
 
@@ -140,7 +140,7 @@ public:
             std::string text = "ID: " + std::to_string(det->id);
             cv::putText(visual, text, cv::Point(det->c[0]-5, det->c[1]-5), 
                         cv::FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(0, 255, 255), 2);
-        }
+        }*/
 
         std::vector<RobotPoseEstimate> poseEstimates = processDetections(&im, timestamp);
 
