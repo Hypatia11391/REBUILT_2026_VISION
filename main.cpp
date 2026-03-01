@@ -57,7 +57,7 @@ class VisualCameraProcessor {
         StreamConfiguration &streamConfig = config->at(0);
         streamConfig.size.width = 1456; 
         streamConfig.size.height = 1088;
-        streamConfig.pixelFormat = formats::Y10; 
+        streamConfig.pixelFormat = formats::R10; 
         
         if (config->validate() == CameraConfiguration::Invalid) return;
         camera_->configure(config.get());
