@@ -108,7 +108,9 @@ class VisualCameraProcessor {
         cv::Mat processed;
 
         // 2. Thresholding
-        cv::threshold(gray, processed, 100.0, 255.0, cv::THRESH_BINARY);
+        cv::threshold(gray, processed, 50.0, 255.0, cv::THRESH_BINARY);
+
+        cv::imshow(processed);
 
         // 4. Update AprilTag to use the THRESHOLDED data
         image_u8_t im{
