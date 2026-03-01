@@ -105,6 +105,8 @@ class VisualCameraProcessor {
         // 1. Create a Grayscale OpenCV Mat from the Y-plane
         cv::Mat gray(1088, 1456, CV_8UC1, data, stride_);
 
+        cv::imshow("gray", gray);
+
         cv::Mat processed;
 
         // 2. Thresholding
