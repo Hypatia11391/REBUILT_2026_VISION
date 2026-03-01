@@ -29,6 +29,20 @@ class VisualCameraProcessor {
         double err;
         Eigen::Matrix4f pose;
     };
+    
+    Eigen::Matrix4f poseAprilTagToEigen(const apriltag_pose_t& pose) {
+        Eigen::Matrix4f mat = Eigen::Matrix4f::Identity();
+
+        // Map the 3x3 rotation matrix (double to float)
+        Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>> R(pose.R->data);
+        mat.block<3, 3>(0, 0) = R.cast<float>();
+
+        // Map the 3x1 translation vector (double to float)
+        Eigen::Map<Eigen::Matrix<double, 3, 1>> t(pose.t->data);
+        mat.block<3, 1>(0, 3) = t.cast<float>();
+
+        return mat;
+    }
 
     public:
     VisualCameraProcessor(std::shared_ptr<Camera> cam, int id, apriltag_detector_t* td) 
@@ -90,7 +104,7 @@ class VisualCameraProcessor {
         };
 
         // 3. AprilTag Detection
-        std::vector<RobotPoseEstimate> pose_estimates = processDetections(&im, timestamp);
+        std::vector<RobotPoseEstimate> pose_estimates = processDetections(&im, td_);
 
         // DEBUG: Print if anything is found at all
         /*if (zarray_size(detections) > 0) {
@@ -129,15 +143,15 @@ private:
             Eigen::Matrix4f cameraPoseInTag = tagPoseInCamera.inverse();
             Eigen::Matrix4f robotPoseInGlobal = constants::AprilTagPosesInGlobal[det->id-1] * cameraPoseInTag * constants::Cameras[id_].RobotPoseInCamera;
 
-            double range = std::sqrt(tagPoseInCamera[0, 3]*tagPoseInCamera[0, 3]
-                                     + tagPoseInCamera[1, 3]*tagPoseInCamera[1, 3]
-                                     + tagPoseInCamera[2, 3]*tagPoseInCamera[2, 3])
+            double range = std::sqrt(tagPoseInCamera(0, 3)*tagPoseInCamera(0, 3)
+                                     + tagPoseInCamera(1, 3)*tagPoseInCamera(1, 3)
+                                     + tagPoseInCamera(2, 3)*tagPoseInCamera(2, 3));
 
             current_estimate.err = err * range;
             current_estimate.pose = robotPoseInGlobal;
             current_estimate.timestamp = ts;
 
-            poseEstimates.push_back(current_estimate0);
+            poseEstimates.push_back(current_estimate);
             
             std::lock_guard<std::mutex> lock(output_mutex);
             //DEBUG print
