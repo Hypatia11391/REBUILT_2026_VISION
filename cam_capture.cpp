@@ -6,6 +6,7 @@
 #include <vector>
 #include <string>
 #include <filesystem>
+#include <thread>
 
 using namespace libcamera;
 namespace fs = std::filesystem;
