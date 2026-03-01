@@ -141,7 +141,7 @@ public:
                         cv::FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(0, 255, 255), 2);
         }
 
-        processDetections(&im);
+        std::vector<RobotPoseEstimate> poseEstimates = processDetections(&im);
 
         // 4. Show the frame in a window named after the Camera ID
         cv::imshow("Camera " + std::to_string(id_), visual);
@@ -153,8 +153,10 @@ public:
     }
 
 private:
-    void processDetections(image_u8_t* im/*, uint64_t ts*/) {
-        
+    std::vector<RobotPoseEstimate> processDetections(image_u8_t* im, /*uint64_t ts*/) {
+        std::vector<RobotPoseEstimate> poseEstimates;
+        RobotPoseEstimate current_estimate;
+
         zarray_t *detections = apriltag_detector_detect(td_, im);
         
         apriltag_detection_info_t info;
@@ -164,6 +166,8 @@ private:
         info.cx = constants::Cameras[id_].cx;
         info.cy = constants::Cameras[id_].cy;
 
+        //std::cout << zarray_size(detections) << std::endl;
+
         for (int i = 0; i < zarray_size(detections); i++) {
             apriltag_detection_t *det;
             zarray_get(detections, i, &det);
@@ -172,16 +176,29 @@ private:
 
             info.det = det;
             apriltag_pose_t pose;
-            estimate_tag_pose(&info, &pose);
+            double err = estimate_tag_pose(&info, &pose);
 
             Eigen::Matrix4f tagPoseInCamera = poseAprilTagToEigen(pose);
             Eigen::Matrix4f cameraPoseInTag = tagPoseInCamera.inverse();
             Eigen::Matrix4f robotPoseInGlobal = constants::AprilTagPosesInGlobal[det->id-1] * cameraPoseInTag * constants::Cameras[id_].RobotPoseInCamera;
 
+            double range = std::sqrt(tagPoseInCamera(0, 3)*tagPoseInCamera(0, 3)
+                                     + tagPoseInCamera(1, 3)*tagPoseInCamera(1, 3)
+                                     + tagPoseInCamera(2, 3)*tagPoseInCamera(2, 3));
+
+            current_estimate.err = err * range;
+            current_estimate.pose = robotPoseInGlobal;
+            //current_estimate.timestamp = ts;
+
+            poseEstimates.push_back(current_estimate);
+            
             std::lock_guard<std::mutex> lock(output_mutex);
+            //DEBUG print
             std::cout << "Cam " << id_ << " | Tag " << det->id << " detected at Global Pose:\n" << robotPoseInGlobal << "\n" << std::endl;
         }
         apriltag_detections_destroy(detections);
+
+        return poseEstimates;
     }
 
     std::shared_ptr<Camera> camera_;
