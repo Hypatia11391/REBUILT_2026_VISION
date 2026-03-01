@@ -92,7 +92,9 @@ class VisualCameraProcessor {
         if (!buffer) return;
 
         uint8_t *data = mappedBuffers_[buffer];
-        uint64_t timestamp = static_cast<uint64_t>(request->metadata().get(controls::SensorTimestamp).value());
+        //uint64_t timestamp = static_cast<uint64_t>(request->metadata().get(controls::SensorTimestamp).value());
+        auto metadata = request->metadata().get(controls::SensorTimestamp);
+        uint64_t timestamp = metadata ? static_cast<uint64_t>(*metadata) : 0;
 
         // 1. Create a Grayscale OpenCV Mat from the Y-plane
         cv::Mat gray(1088, 1456, CV_8UC1, data, stride_);
