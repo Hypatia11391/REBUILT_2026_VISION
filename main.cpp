@@ -106,7 +106,7 @@ class VisualCameraProcessor {
         cv::Mat gray(1088, 1456, CV_8UC1, data, stride_);
 
         // 2. Apply Adaptive Thresholding
-        //cv::threshold(gray, gray, 100.0, 255.0, cv::THRESH_BINARY);
+        cv::threshold(gray, gray, 100.0, 255.0, cv::THRESH_BINARY);
 
         // 4. Update AprilTag to use the THRESHOLDED data
         image_u8_t im{
