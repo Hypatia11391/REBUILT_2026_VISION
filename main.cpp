@@ -100,7 +100,7 @@ public:
         cv::threshold(gray, thresholded, 100.0, 255.0, cv::THRESH_BINARY);
 
         // 3. (Optional) Show the thresholded view to see what the computer sees
-        cv::imshow("Threshold", thresholded);
+        //cv::imshow("Threshold", thresholded);
 
         // 4. Update AprilTag to use the THRESHOLDED data
         image_u8_t im{
