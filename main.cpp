@@ -147,8 +147,8 @@ public:
         /*// 4. Show the frame in a window named after the Camera ID
         cv::imshow("Camera " + std::to_string(id_), visual);
         cv::waitKey(1); // Required for HighGUI to refresh the window
-*/
-        apriltag_detections_destroy(detections);
+        apriltag_detections_destroy(detections);*/
+
         request->reuse(Request::ReuseBuffers);
         camera_->queueRequest(request);
     }
