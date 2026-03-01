@@ -89,7 +89,9 @@ class VisualCameraProcessor {
         if (request->status() == Request::RequestCancelled) return;
 
         const FrameBuffer *buffer = request->findBuffer(stream_);
-        if (!buffer) return;
+        if (!buffer || mappedBuffers_.find(buffer) == mappedBuffers_.end()) return; // Add check
+
+        uint8_t *data = mappedBuffers_[buffer];
 
         uint8_t *data = mappedBuffers_[buffer];
         //uint64_t timestamp = static_cast<uint64_t>(request->metadata().get(controls::SensorTimestamp).value());
