@@ -57,7 +57,7 @@ class VisualCameraProcessor {
         StreamConfiguration &streamConfig = config->at(0);
         streamConfig.size.width = 1456; 
         streamConfig.size.height = 1088;
-        streamConfig.pixelFormat = formats::R8; 
+        streamConfig.pixelFormat = formats::Y8; 
         
         if (config->validate() == CameraConfiguration::Invalid) return;
         camera_->configure(config.get());
@@ -105,16 +105,18 @@ class VisualCameraProcessor {
         // 1. Create a Grayscale OpenCV Mat from the Y-plane
         cv::Mat gray(1088, 1456, CV_8UC1, data, stride_);
 
-        // 2. Apply Adaptive Thresholding
-        cv::threshold(gray, gray, 100.0, 255.0, cv::THRESH_BINARY);
+        cv::Mat processed;
+
+        // 2. Thresholding
+        cv::threshold(gray, processed, 100.0, 255.0, cv::THRESH_BINARY);
 
         // 4. Update AprilTag to use the THRESHOLDED data
         image_u8_t im{
-            .width = gray.cols,
-            .height = gray.rows,
-            .stride = (int)gray.step, 
-            .buf = gray.data
-        };
+                .width = processed.cols,
+                .height = processed.rows,
+                .stride = (int)processed.step, 
+                .buf = processed.data
+            };
 
         // 3. AprilTag Detection
         std::vector<RobotPoseEstimate> pose_estimates = processDetections(&im, timestamp);
