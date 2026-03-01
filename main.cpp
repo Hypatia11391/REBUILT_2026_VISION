@@ -144,6 +144,8 @@ private:
         info.cx = constants::Cameras[id_].cx;
         info.cy = constants::Cameras[id_].cy;
 
+        std::cout << zarray_size(detections) << std::endl;
+
         for (int i = 0; i < zarray_size(detections); i++) {
             apriltag_detection_t *det;
             zarray_get(detections, i, &det);
