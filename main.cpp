@@ -87,7 +87,11 @@ class VisualCameraProcessor {
         if (request->status() == Request::RequestCancelled) return;
 
         const FrameBuffer *buffer = request->findBuffer(stream_);
+        if (!buffer) return;
+
+        const FrameBuffer *buffer = request->findBuffer(stream_);
         uint8_t *data = mappedBuffers_[buffer];
+        uint64_t timestamp = static_cast<uint64_t>(request->metadata().get(controls::SensorTimestamp).value());
 
         // 1. Create a Grayscale OpenCV Mat from the Y-plane
         cv::Mat gray(1088, 1456, CV_8UC1, data, stride_);
