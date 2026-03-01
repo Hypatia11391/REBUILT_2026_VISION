@@ -89,7 +89,6 @@ class VisualCameraProcessor {
         const FrameBuffer *buffer = request->findBuffer(stream_);
         if (!buffer) return;
 
-        const FrameBuffer *buffer = request->findBuffer(stream_);
         uint8_t *data = mappedBuffers_[buffer];
         uint64_t timestamp = static_cast<uint64_t>(request->metadata().get(controls::SensorTimestamp).value());
 
@@ -108,7 +107,7 @@ class VisualCameraProcessor {
         };
 
         // 3. AprilTag Detection
-        std::vector<RobotPoseEstimate> pose_estimates = processDetections(&im, td_);
+        std::vector<RobotPoseEstimate> pose_estimates = processDetections(&im, timestamp);
 
         // DEBUG: Print if anything is found at all
         /*if (zarray_size(detections) > 0) {
