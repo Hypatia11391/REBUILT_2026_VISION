@@ -24,6 +24,26 @@
 using namespace libcamera;
 
 class VisualCameraProcessor {
+    struct RobotPoseEstimate {
+        std::optional<int64_t> timestamp;
+        double err;
+        Eigen::Matrix4f pose;
+    };
+    
+    Eigen::Matrix4f poseAprilTagToEigen(const apriltag_pose_t& pose) {
+        Eigen::Matrix4f mat = Eigen::Matrix4f::Identity();
+
+        // Map the 3x3 rotation matrix (double to float)
+        Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>> R(pose.R->data);
+        mat.block<3, 3>(0, 0) = R.cast<float>();
+
+        // Map the 3x1 translation vector (double to float)
+        Eigen::Map<Eigen::Matrix<double, 3, 1>> t(pose.t->data);
+        mat.block<3, 1>(0, 3) = t.cast<float>();
+
+        return mat;
+    }
+
 public:
     VisualCameraProcessor(std::shared_ptr<Camera> cam, int id, apriltag_detector_t* td) 
         : camera_(cam), id_(id), td_(td), stream_(nullptr) {}
@@ -172,7 +192,10 @@ private:
     FrameBufferAllocator *allocator_;
     std::map<const FrameBuffer *, uint8_t *> mappedBuffers_;
     std::vector<std::unique_ptr<Request>> requests_;
+    static std::mutex output_mutex;
 };
+
+std::mutex VisualCameraProcessor::output_mutex;
 
 int main() {
     std::unique_ptr<CameraManager> cm = std::make_unique<CameraManager>();
