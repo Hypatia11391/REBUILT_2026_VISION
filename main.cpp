@@ -153,7 +153,7 @@ public:
     }
 
 private:
-    std::vector<RobotPoseEstimate> processDetections(image_u8_t* im, /*uint64_t ts*/) {
+    std::vector<RobotPoseEstimate> processDetections(image_u8_t* im/*, uint64_t ts*/) {
         std::vector<RobotPoseEstimate> poseEstimates;
         RobotPoseEstimate current_estimate;
 
