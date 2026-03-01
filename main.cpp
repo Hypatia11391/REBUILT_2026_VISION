@@ -206,7 +206,7 @@ int main() {
 
     td0->quad_decimate = 1.0;
     td0->quad_sigma = 0.0;
-    td0->nthreads = 4;   // may need to adjust this down
+    td0->nthreads = 2;   // may need to adjust this
     td0->refine_edges = 1;
 
     apriltag_detector_t *td1 = apriltag_detector_create();
@@ -214,7 +214,7 @@ int main() {
 
     td1->quad_decimate = 1.0;
     td1->quad_sigma = 0.0;
-    td1->nthreads = 4;   // may need to adjust this down
+    td1->nthreads = 2;   // may need to adjust this
     td1->refine_edges = 1;
 
     VisualCameraProcessor Cam0(cameras[0], 0, td0);
