@@ -105,14 +105,18 @@ class VisualCameraProcessor {
         // 1. Create a Grayscale OpenCV Mat from the Y-plane
         cv::Mat gray(1088, 1456, CV_8UC1, data, stride_);
 
-        if(id_ == 0) {cv::imshow("gray", gray)};
+        if(id_ == 0) {
+            cv::imshow("gray", gray);
+        };
 
         cv::Mat processed;
 
         // 2. Thresholding
         cv::threshold(gray, processed, 50.0, 255.0, cv::THRESH_BINARY);
 
-        if(id_ == 0) {cv::imshow("Thresholded", processed)};
+        if(id_ == 0) {
+            cv::imshow("Thresholded", processed);
+        };
 
         // 4. Update AprilTag to use the THRESHOLDED data
         image_u8_t im{
