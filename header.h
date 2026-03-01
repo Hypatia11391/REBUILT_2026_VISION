@@ -28,8 +28,8 @@ namespace constants {
     // Camera Configuration
     // Fixed: Using inline const for Eigen compatibility
     inline const std::array<CameraInfo, num_cams> Cameras = {{
-        {1000.f, 1000.f, 960.f, 540.f, Eigen::Matrix4f::Identity();},
-        {1000.f, 1000.f, 960.f, 540.f, Eigen::Matrix4f::Identity();}
+        {1000.f, 1000.f, 960.f, 540.f, Eigen::Matrix4f::Identity()},
+        {1000.f, 1000.f, 960.f, 540.f, Eigen::Matrix4f::Identity()}
     }};
 
     // AprilTag Field Poses (ID = index + 1)
