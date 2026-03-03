@@ -189,7 +189,8 @@ private:
             //DEBUG print
             std::cout << "Cam " << id_ << " | Tag " << det->id << " detected at Global Pose:\n" << robotPoseInGlobal << std::endl;
 
-            std::cout << "Range: " << range << "\n" << std::endl;
+            std::cout << "Range: " << range << std::endl;
+            std::cout << "Err: " << current_estimate.err << "\n" << std::endl;
         }
         apriltag_detections_destroy(detections);
 
