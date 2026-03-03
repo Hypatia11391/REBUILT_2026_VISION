@@ -13,6 +13,8 @@ cap = cv2.VideoCapture(video_path)
 if not cap.isOpened():
     print("Error while opening the video file. Check video file is at" + video_path)
 
+print(f"Video file opened at {video_path}")
+
 criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
 
 # prepare object points, like (0,0,0), (1,0,0), (2,0,0) ....,(6,5,0)
