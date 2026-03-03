@@ -21,8 +21,9 @@ imgpoints = [] # 2d points in image plane.
 i = 0
 
 while cap.isOpened():
-    if not i % 10 == 0:
-        i += 1
+    i += 1
+    
+    if i % 10 != 0:
         continue
 
     ret, frame = cap.read()
@@ -48,8 +49,6 @@ while cap.isOpened():
     cv2.imshow('Frame', frame)
 
     cv2.waitKey(1)
-
-    i += 1
 
 cv2.destroyAllWindows()
 
