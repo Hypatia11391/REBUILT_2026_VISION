@@ -19,6 +19,7 @@ objpoints = [] # 3d point in real world space
 imgpoints = [] # 2d points in image plane.
 
 i = 0
+j = 0
 
 while cap.isOpened():
     i += 1
@@ -38,6 +39,7 @@ while cap.isOpened():
 
     # If found, add object points, image points (after refining them)
     if ret:
+        j += 1
         objpoints.append(objp)
 
         corners2 = cv2.cornerSubPix(gray,corners, (11,11), (-1,-1), criteria)
@@ -52,7 +54,7 @@ while cap.isOpened():
 
 cv2.destroyAllWindows()
 
-print(f"{i/10} frames captured")
+print(f"Calibrating from {j} frames")
 
 print("[INFO] Points captured, calibrating ...")
 
