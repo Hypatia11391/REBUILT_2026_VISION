@@ -7,33 +7,21 @@ namespace constants {
     // Define a datatype to hold camera info
     struct CameraInfo {
         float fx, fy, cx, cy; 
-        Eigen::Matrix4f RobotPoseInCamera; // Fixed: Removed (4,4)
+        Eigen::Matrix4f RobotPoseInCamera;
     };
 
     // Constants
-    inline constexpr float tag_size = 0.1651f;
-    inline constexpr float tagsize = 0.1651f; // Alias to match your main.cpp usage
+    //inline constexpr float tag_size = 0.1651f;
+    inline constexpr float tagsize = 0.1651f;
     inline constexpr int num_cams = 2;
 
-    /*// Helper to create identity or custom matrices for the array
-    inline Eigen::Matrix4f make_identity() { return Eigen::Matrix4f::Identity(); }
-    
-    // Helper to create the specific placeholder matrix you used in CameraInfo
-    inline Eigen::Matrix4f make_placeholder_pose() {
-        Eigen::Matrix4f m = Eigen::Matrix4f::Zero();
-        m(3,3) = 1.0f;
-        return m;
-    }*/
-
     // Camera Configuration
-    // Fixed: Using inline const for Eigen compatibility
     inline const std::array<CameraInfo, num_cams> Cameras = {{
-        {1000.f, 1000.f, 960.f, 540.f, Eigen::Matrix4f::Identity()},
+        {417.4927246f, 416.72008403f, 319.48475548f, 242.80655396f, Eigen::Matrix4f::Identity()},
         {1000.f, 1000.f, 960.f, 540.f, Eigen::Matrix4f::Identity()}
     }};
 
     // AprilTag Field Poses (ID = index + 1)
-    // All coordinates preserved exactly from your file.
     inline const std::array<Eigen::Matrix4f, 32> AprilTagPosesInGlobal = {{
         /* ID 1  */ (Eigen::Matrix4f() << 1,0,0,4.625594f,  0,1,0,0.633222f,  0,0,1,0.889000f,  0,0,0,1).finished(),
         /* ID 2  */ (Eigen::Matrix4f() << 1,0,0,4.625594f,  0,0,1,3.437890f,  0,-1,0,1.124000f, 0,0,0,1).finished(),

@@ -1,7 +1,7 @@
 import numpy as np
 import cv2
 
-video_path = "./calibration0.mp4"
+video_path = "./calibration1.mp4"
 
 cap = cv2.VideoCapture(video_path) # Edit this to be the name of the calibration video.
 
