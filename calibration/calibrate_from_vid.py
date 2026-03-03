@@ -1,11 +1,11 @@
 import numpy as np
 import cv2
 
-video_path = "./calibration_video.mp4"
+video_path = "./calibration0.mp4"
 
 cap = cv2.VideoCapture(video_path) # Edit this to be the name of the calibration video.
 
-if not cap.isOpen():
+if not cap.isOpened():
     print("Error while opening the video file. Check video file is at" + video_path)
 
 criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
@@ -18,7 +18,7 @@ objp[:,:2] = np.mgrid[0:7,0:7].T.reshape(-1,2)
 objpoints = [] # 3d point in real world space
 imgpoints = [] # 2d points in image plane.
 
-while cap.isOpen():
+while cap.isOpened():
     ret, frame = cap.read()
 
     if not ret:
