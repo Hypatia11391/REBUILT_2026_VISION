@@ -8,7 +8,7 @@ def calc_rot_mtx(yaw, pitch, roll):
     
     return R
 
-R = calc_rot_mtx(-math.pi/2, 0, math.pi/2)
+R = calc_rot_mtx(-math.pi, 0, 0)
 
 T = np.identity(4, dtype = float)
 
