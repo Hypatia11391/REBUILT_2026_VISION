@@ -103,7 +103,7 @@ public:
             .buf = thresholded.data
         };
 
-        //zarray_t *detections = apriltag_detector_detect(td_, &im);
+        /*//zarray_t *detections = apriltag_detector_detect(td_, &im);
 
         // 2. Convert to BGR so we can draw colored lines/text
         cv::Mat visual;
@@ -133,14 +133,14 @@ public:
             std::string text = "ID: " + std::to_string(det->id);
             cv::putText(visual, text, cv::Point(det->c[0]-5, det->c[1]-5), 
                         cv::FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(0, 255, 255), 2);
-        }
+        }*/
 
         std::vector<RobotPoseEstimate> poseEstimates = processDetections(&im, timestamp);
 
-        // 4. Show the frame in a window named after the Camera ID
+        /*// 4. Show the frame in a window named after the Camera ID
         cv::imshow("Camera " + std::to_string(id_), visual);
         cv::waitKey(1); // Required for HighGUI to refresh the window
-        apriltag_detections_destroy(detections);
+        apriltag_detections_destroy(detections);*/
 
         request->reuse(Request::ReuseBuffers);
         camera_->queueRequest(request);
