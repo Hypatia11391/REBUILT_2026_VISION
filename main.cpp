@@ -226,8 +226,11 @@ int main() {
     // Note: For testing, we run one processor. 
     // OpenCV HighGUI (imshow) works best when called from a single thread 
     // or when waitKey is handled correctly.
-    VisualCameraProcessor testCam(cameras[0], 0, td);
-    testCam.run();
+    VisualCameraProcessor Cam0(cameras[0], 0, td);
+    Cam.run();
+
+    VisualCameraProcessor Cam1(cameras[1], 1, td);
+    Cam.run();
 
     //std::cout << "Test mode active. Close window or press Ctrl+C to exit.\n";
     while (true) {
