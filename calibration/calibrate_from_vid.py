@@ -18,15 +18,9 @@ objp[:,:2] = np.mgrid[0:7,0:7].T.reshape(-1,2)
 objpoints = [] # 3d point in real world space
 imgpoints = [] # 2d points in image plane.
 
-i = 0
 j = 0
 
 while cap.isOpened():
-    i += 1
-    
-    if i % 10 != 0:
-        continue
-
     ret, frame = cap.read()
 
     if not ret:
@@ -40,6 +34,10 @@ while cap.isOpened():
     # If found, add object points, image points (after refining them)
     if ret:
         j += 1
+        
+        if j % 10 != 0:
+            continue
+
         objpoints.append(objp)
 
         corners2 = cv2.cornerSubPix(gray,corners, (11,11), (-1,-1), criteria)
