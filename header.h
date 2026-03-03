@@ -14,11 +14,11 @@ namespace constants {
     //inline constexpr float tag_size = 0.1651f;
     inline constexpr float tagsize = 0.1651f;
     inline constexpr int num_cams = 2;
-
     // Camera Configuration
+
     inline const std::array<CameraInfo, num_cams> Cameras = {{
         {417.4927246f, 416.72008403f, 319.48475548f, 242.80655396f, Eigen::Matrix4f::Identity()},
-        {1000.f, 1000.f, 960.f, 540.f, Eigen::Matrix4f::Identity()}
+        {417.f, 1000.f, 960.f, 540.f, Eigen::Matrix4f::Identity()}
     }};
 
     // AprilTag Field Poses (ID = index + 1)

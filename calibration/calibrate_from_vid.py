@@ -1,9 +1,14 @@
 import numpy as np
 import cv2
+import argparse
 
-video_path = "./calibration1.mp4"
+ap = argparse.ArgumentParser()
+ap.add_argument("-v", "--video", required = True, help = "Path to the video file")
+args = ap.parse_args()
 
-cap = cv2.VideoCapture(video_path) # Edit this to be the name of the calibration video.
+video_path = args.video
+
+cap = cv2.VideoCapture(video_path)
 
 if not cap.isOpened():
     print("Error while opening the video file. Check video file is at" + video_path)
