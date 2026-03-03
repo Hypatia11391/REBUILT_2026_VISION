@@ -187,7 +187,7 @@ private:
             
             std::lock_guard<std::mutex> lock(output_mutex);
             //DEBUG print
-            //std::cout << "Cam " << id_ << " | Tag " << det->id << " detected at Global Pose:\n" << robotPoseInGlobal << "\n" << std::endl;
+            std::cout << "Cam " << id_ << " | Tag " << det->id << " detected at Global Pose:\n" << robotPoseInGlobal << "\n" << std::endl;
         }
         apriltag_detections_destroy(detections);
 
@@ -223,9 +223,6 @@ int main() {
     td->nthreads = 2;   // may need to adjust this
     td->refine_edges = 1;
 
-    // Note: For testing, we run one processor. 
-    // OpenCV HighGUI (imshow) works best when called from a single thread 
-    // or when waitKey is handled correctly.
     VisualCameraProcessor Cam0(cameras[0], 0, td);
     Cam0.run();
 
