@@ -179,7 +179,7 @@ private:
                                      + tagPoseInCamera(1, 3)*tagPoseInCamera(1, 3)
                                      + tagPoseInCamera(2, 3)*tagPoseInCamera(2, 3));
 
-            current_estimate.err = err * range;
+            current_estimate.err = range; // Note apriltag_pose_t err measurements are to variable to be useful. Use static proportionality const.
             current_estimate.pose = robotPoseInGlobal;
             current_estimate.timestamp = ts;
 
