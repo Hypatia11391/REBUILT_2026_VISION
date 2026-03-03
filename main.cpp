@@ -187,9 +187,9 @@ private:
             
             std::lock_guard<std::mutex> lock(output_mutex);
             //DEBUG print
-            std::cout << "Cam " << id_ << " | Tag " << det->id << " detected at Global Pose:\n" << robotPoseInGlobal << "\n" << std::endl;
+            std::cout << "Cam " << id_ << " | Tag " << det->id << " detected at Global Pose:\n" << robotPoseInGlobal << std::endl;
 
-            std::cout << "\n" << "Range: " << range << std::endl;
+            std::cout << "Range: " << range << "\n" << std::endl;
         }
         apriltag_detections_destroy(detections);
 
