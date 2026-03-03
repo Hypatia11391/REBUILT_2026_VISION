@@ -21,6 +21,10 @@ imgpoints = [] # 2d points in image plane.
 i = 0
 
 while cap.isOpened():
+    if not i % 10 == 0:
+        i += 1
+        continue
+
     ret, frame = cap.read()
 
     if not ret:
