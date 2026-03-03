@@ -17,8 +17,8 @@ namespace constants {
     // Camera Configuration
 
     inline const std::array<CameraInfo, num_cams> Cameras = {{
-        {417.4927246f, 416.72008403f, 319.48475548f, 242.80655396f, Eigen::Matrix4f::Identity()},
-        {417.f, 1000.f, 960.f, 540.f, Eigen::Matrix4f::Identity()}
+        {423.1102f, 422.861f, 311.2891f, 238.8385f, Eigen::Matrix4f::Identity()},
+        {420.7509f, 420.6934f, 290.5966f, 229.5865f, Eigen::Matrix4f::Identity()}
     }};
 
     // AprilTag Field Poses (ID = index + 1)
