@@ -43,6 +43,23 @@ while cap.isOpened():
 
     cv2.waitKey(17)
 
+cv2.destroyAllWindows()
+
+print("[INFO] Points captured, calibrating ...")
+
 ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, gray.shape[::-1], None, None)
 
-print((ret, mtx, dist, rvecs, tvecs))
+if ret is not None:
+    print("Calibration successful!")
+    print(" ")
+
+    print(f"retVal: {ret}")
+    
+    print("Distortion matrix:")
+    print(mtx)
+
+    print("Distortion coeficients:")
+    print(dist)
+
+else:
+    print("Calibration failed")
