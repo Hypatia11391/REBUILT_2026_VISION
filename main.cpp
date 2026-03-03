@@ -173,7 +173,7 @@ private:
             Eigen::Matrix4f tagPoseInCamera = poseAprilTagToEigen(pose);
             //std::cout << tagPoseInCamera << std::endl;
             Eigen::Matrix4f cameraPoseInTag = tagPoseInCamera.inverse();
-            Eigen::Matrix4f robotPoseInGlobal = constants::AprilTagPosesInGlobal[det->id-1] * cameraPoseInTag * constants::Cameras[id_].RobotPoseInCamera;
+            Eigen::Matrix4f robotPoseInGlobal = constants::AprilTagPosesInGlobal[det->id - 1] * cameraPoseInTag * constants::Cameras[id_].RobotPoseInCamera;
 
             double range = std::sqrt(tagPoseInCamera(0, 3)*tagPoseInCamera(0, 3)
                                      + tagPoseInCamera(1, 3)*tagPoseInCamera(1, 3)
