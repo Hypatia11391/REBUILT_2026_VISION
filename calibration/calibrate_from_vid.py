@@ -18,6 +18,8 @@ objp[:,:2] = np.mgrid[0:7,0:7].T.reshape(-1,2)
 objpoints = [] # 3d point in real world space
 imgpoints = [] # 2d points in image plane.
 
+i = 0
+
 while cap.isOpened():
     ret, frame = cap.read()
 
@@ -41,9 +43,13 @@ while cap.isOpened():
     
     cv2.imshow('Frame', frame)
 
-    cv2.waitKey(17)
+    cv2.waitKey(1)
+
+    i += 1
 
 cv2.destroyAllWindows()
+
+print(f"{i} frames captured")
 
 print("[INFO] Points captured, calibrating ...")
 
