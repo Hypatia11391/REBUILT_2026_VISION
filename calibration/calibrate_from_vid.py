@@ -41,8 +41,7 @@ while cap.isOpened():
     
     cv2.imshow('Frame', frame)
 
-    if cv2.waitKey(17) == ord('q'):
-        break
+    cv2.waitKey(17)
 
 ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, gray.shape[::-1], None, None)
 
