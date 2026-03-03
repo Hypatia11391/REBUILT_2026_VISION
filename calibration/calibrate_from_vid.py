@@ -34,8 +34,8 @@ while cap.isOpened():
     # If found, add object points, image points (after refining them)
     if ret:
         j += 1
-        
-        if j % 10 != 0:
+
+        if j % 15 != 0:
             continue
 
         objpoints.append(objp)
@@ -52,7 +52,7 @@ while cap.isOpened():
 
 cv2.destroyAllWindows()
 
-print(f"Calibrating from {j} frames")
+print(f"Calibrating from {j/10} frames")
 
 print("[INFO] Points captured, calibrating ...")
 
