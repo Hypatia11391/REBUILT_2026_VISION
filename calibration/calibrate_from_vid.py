@@ -42,7 +42,7 @@ while cap.isOpened():
     if ret:
         j += 1
 
-        if j % 15 != 0:
+        if j % 10 != 0:
             continue
 
         objpoints.append(objp)
@@ -55,7 +55,7 @@ while cap.isOpened():
     
     cv2.imshow('Frame', frame)
 
-    cv2.waitKey(1)
+    cv2.waitKey(10)
 
 cv2.destroyAllWindows()
 
