@@ -53,7 +53,7 @@ while cap.isOpened():
 
 cv2.destroyAllWindows()
 
-print(f"{i} frames captured")
+print(f"{i/10} frames captured")
 
 print("[INFO] Points captured, calibrating ...")
 
