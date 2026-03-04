@@ -234,63 +234,12 @@ std::mutex globalPoseEstimateMutex;
 
 std::atomic<bool> isRunning = true;
 
+struct in_addr ROBORIO_ADDR = {0}; // TODO: CORRECTLY HAVE ROBORIO ADDRESS
 
-void netThread(std::vector<RobotPoseEstimate>* globalPoseEstimates,std::mutex* globalPoseEstimateMutex) {
-    int socket = socket(AF_INET, SOCK_STREAM, 0);
-    sockaddr_in serverAddress;
-    serverAddress.sin_family = AF_INET;
-    serverAddress.sin_port = htons(8080);
-    serverAddress.sin_addr.s_addr = INADDR_ANY;
-
-    connect(socket, (struct sockaddr*)&serverAddress, sizeof(serverAddress));
-
-
-    while (isRunning) {
-        while (true) {
-            std::unique_lock lock(*globalPoseEstimateMutex);
-            if (globalPoseEstimates->size() > 0) {
-                break;
-            }
-        }
-        std::unique_lock lock(*globalPoseEstimateMutex);
-        for (const RobotPoseEstimate& poseEstimate : *globalPoseEstimates) {
-            struct structData {
-                double matrix[16];
-                double translationErr;
-                double rotationErr;
-                uint64_t timestamp;
-            } posePacketStruct;
-
-            std::vector<double> vec(poseEstimate.pose.size());
-            Eigen::Map<Eigen::Matrix4f>(vec.data(), poseEstimate.pose.rows(), poseEstimate.pose.cols()) = poseEstimate.pose;
-
-            posePacketStruct.matrix = vec.data();
-            posePacketStruct.translationErr = poseEstimate.err_translation;
-            posePacketStruct.rotationErr = poseEstimate.err_rotation;
-            posePacketStruct.timestamp = poseEstimate.timestamp.value();
-
-            union{
-                structData structPacket;
-                unsigned char raw[sizeof(double) * 16 + sizeof(double) * 2 + sizeof(uint64_t)];
-            } posePacket;
-
-            posePacket.structPacket = posePacketStruct;
-
-            sendFull(
-                socket,
-                posePacket.raw,
-                sizeof(double) * 16 + sizeof(double) * 2 + sizeof(uint64_t)
-            );
-        }
-    }
-
-    close(socket);
-}
-
-bool sendFull(int fd, const char* message, int size) {
+bool sendFull(int fd, const char* message, size_t size) {
     // prepare to send request
     const char* ptr = message;
-    int nleft = size;
+    int nleft = static_cast<int>(size);
     int nwritten;
     // loop to be sure it is all sent
     while (nleft) {
@@ -311,6 +260,64 @@ bool sendFull(int fd, const char* message, int size) {
         ptr += nwritten;
     }
     return true;
+}
+
+void netThread(std::vector<RobotPoseEstimate>* globalPoseEstimates,std::mutex* globalPoseEstimateMutex) {
+    int clientSocket = socket(AF_INET, SOCK_STREAM, 0);
+    sockaddr_in serverAddress;
+    serverAddress.sin_family = AF_INET;
+    serverAddress.sin_port = htons(8080);
+    serverAddress.sin_addr.s_addr = ROBORIO_ADDR.s_addr;
+
+    connect(clientSocket, (struct sockaddr*)&serverAddress, sizeof(serverAddress));
+
+
+    while (isRunning) {
+        while (true) {
+            std::unique_lock lock(*globalPoseEstimateMutex);
+            if (globalPoseEstimates->size() > 0) {
+                break;
+            }
+        }
+        std::unique_lock lock(*globalPoseEstimateMutex);
+        for (const RobotPoseEstimate& poseEstimate : *globalPoseEstimates) {
+            struct structData {
+                double matrix[16];
+                double translationErr;
+                double rotationErr;
+                uint64_t timestamp;
+            } posePacketStruct;
+
+            // std::vector<double> vec(poseEstimate.pose.size());
+            //for(int i=0;i<16;i++) {
+            //    posePacketStruct.matrix[i] = i;
+            //}
+            //Eigen::Map<Eigen::Matrix4f>(posePacketStruct.matrix);
+            for(int i=0;i<16;i++) {
+        posePacketStruct.matrix[i] = static_cast<double>(*(poseEstimate.pose.data() + i));
+            }
+
+            // copy(vec.begin(), vec.end(), posePacketStruct.matrix);
+            posePacketStruct.translationErr = poseEstimate.err_translation;
+            posePacketStruct.rotationErr = poseEstimate.err_rotation;
+            posePacketStruct.timestamp = poseEstimate.timestamp.value();
+
+            union{
+                structData structPacket;
+                char raw[sizeof(double) * 16 + sizeof(double) * 2 + sizeof(uint64_t)];
+            } posePacket;
+
+            posePacket.structPacket = posePacketStruct;
+
+            sendFull(
+                clientSocket,
+                posePacket.raw,
+                sizeof(double) * 16 + sizeof(double) * 2 + sizeof(uint64_t)
+            );
+        }
+    }
+
+    close(clientSocket);
 }
 
 int main() {
@@ -347,3 +354,5 @@ int main() {
 
     return 0;
 }
+
+
