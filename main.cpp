@@ -20,6 +20,7 @@
 #include <sys/mman.h>
 #include <chrono>
 #include <netinet/in.h>
+#include <sys/types.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -254,19 +255,19 @@ void netThread(std::vector<RobotPoseEstimate>& globalPoseEstimates,std::mutex& g
         std::unique_lock lock(globalPoseEstimateMutex);
         for (const RobotPoseEstimate& poseEstimate : globalPoseEstimates) {
             struct structData {
-                double matrix[16],
-                double translationErr,
-                double rotationErr,
-                uint64_t timestamp
+                double matrix[16];
+                double translationErr;
+                double rotationErr;
+                uint64_t timestamp;
             } posePacketStruct;
 
             std::vector<double> vec(poseEstimate.pose.size());
-            Eigen::Map<Eigen::MatrixXf>(vec.data(), poseEstimate.pose.rows(), poseEstimate.pose.cols()) = poseEstimate.pose;
+            Eigen::Map<Eigen::Matrix4f>(vec.data(), poseEstimate.pose.rows(), poseEstimate.pose.cols()) = poseEstimate.pose;
 
-            rawPosePacket.matrix = vec.data();
-            rawPosePacket.translationErr = poseEstimate.err_translation;
-            rawPosePacket.rotationErr = poseEstimate.err_rotation;
-            rawPosePacket.timestamp = staticposeEstimate.timestamp.value();
+            posePacketStruct.matrix = vec.data();
+            posePacketStruct.translationErr = poseEstimate.err_translation;
+            posePacketStruct.rotationErr = poseEstimate.err_rotation;
+            posePacketStruct.timestamp = poseEstimate.timestamp.value();
 
             union{
                 structData structPacket;
@@ -276,7 +277,7 @@ void netThread(std::vector<RobotPoseEstimate>& globalPoseEstimates,std::mutex& g
             posePacket.structPacket = posePacketStruct;
 
             sendFull(
-                clientSocket,
+                socket,
                 posePacket.raw,
                 sizeof(double) * 16 + sizeof(double) * 2 + sizeof(uint64_t)
             );
@@ -328,13 +329,13 @@ int main() {
     td->nthreads = 2;   // may need to adjust this
     td->refine_edges = 1;
 
-    VisualCameraProcessor Cam0(cameras[0], 0, td, &globalPoseEstimates,&globalPoseEstimateMutex);
+    VisualCameraProcessor Cam0(cameras[0], 0, td, globalPoseEstimates,globalPoseEstimateMutex);
     Cam0.run();
 
-    VisualCameraProcessor Cam1(cameras[1], 1, td, &globalPoseEstimates,&globalPoseEstimateMutex);
+    VisualCameraProcessor Cam1(cameras[1], 1, td, globalPoseEstimates,globalPoseEstimateMutex);
     Cam1.run();
 
-    std::thread networkThread(netThread, &globalPoseEstimates,&globalPoseEstimateMutex);
+    std::thread networkThread(netThread, globalPoseEstimates,globalPoseEstimateMutex);
     networkThread.detach();
 
     //std::cout << "Test mode active. Close window or press Ctrl+C to exit.\n";
