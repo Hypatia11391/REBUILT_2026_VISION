@@ -1,0 +1,21 @@
+[Unit]
+Description=FRC AprilTag Vision System
+After=network.target
+
+[Service]
+User=pi
+
+WorkingDirectory=/home/REBUILT_2026_VISION/build
+
+ExecStart=/home/REBUILT_2026_VISION/build/vision_system
+
+# Restart the script if it crashes
+Restart=always
+RestartSec=5
+
+# Useful for debugging
+StandardOutput=append:/home/pi/vision_logs/output.log
+StandardError=append:/home/pi/vision_logs/error.log
+
+[Install]
+WantedBy=multi-user.target

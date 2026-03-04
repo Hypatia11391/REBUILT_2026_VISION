@@ -55,7 +55,7 @@ public:
         apriltag_detector_t* td,
         std::vector<RobotPoseEstimate> globalPoseEstimates,
         std::mutex globalPoseEstimateMutex
-    ) 
+    )
         : camera_(cam), id_(id), td_(td), stream_(nullptr) globalPoseEstimates_(globalPoseEstimates) globalPoseEstimateMutex_(globalPoseEstimateMutex) {}
 
     void run() {
@@ -194,7 +194,7 @@ private:
                                      + tagPoseInCamera(1, 3)*tagPoseInCamera(1, 3)
                                      + tagPoseInCamera(2, 3)*tagPoseInCamera(2, 3));
 
-            current_estimate.err_translation = err * range;
+            current_estimate.err_translation = err * range; // Note apriltag_pose_t err measurements are to variable to be useful. Use static proportionality const.
             current_estimate.err_rotation = err;
             current_estimate.pose = robotPoseInGlobal;
             current_estimate.timestamp = ts;
@@ -203,9 +203,9 @@ private:
             
             std::lock_guard<std::mutex> lock(output_mutex);
             //DEBUG print
-            std::cout << "Cam " << id_ << " | Tag " << det->id << " detected at Global Pose:\n" << robotPoseInGlobal << std::endl;
+            std::cout << "@ time t = " << static_cast<int64_t>(current_estimate.timestamp.value_or(0)) << ", cam " << id_ << " | Tag " << det->id << " detected Global Pose:\n" << robotPoseInGlobal << std::endl;
 
-            std::cout << "Range: " << range << std::endl;
+            //std::cout << "Range: " << range << std::endl;
             std::cout << "Err: " << current_estimate.err << "\n" << std::endl;
         }
         apriltag_detections_destroy(detections);
