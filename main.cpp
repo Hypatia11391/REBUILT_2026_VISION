@@ -11,6 +11,7 @@
 #include <Eigen/Dense>
 #include <opencv2/opencv.hpp>
 
+#include <cstring>
 #include <iostream>
 #include <vector>
 #include <thread>
@@ -18,6 +19,9 @@
 #include <algorithm>
 #include <sys/mman.h>
 #include <chrono>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <unistd.h>
 
 #include "header.h"
 
@@ -25,8 +29,9 @@ using namespace libcamera;
 
 class VisualCameraProcessor {
     struct RobotPoseEstimate {
-        std::optional<int64_t> timestamp;
-        double err;
+        std::optional<uint64_t> timestamp;
+        double err_translation;
+        double err_rotation;
         Eigen::Matrix4f pose;
     };
     
@@ -45,8 +50,13 @@ class VisualCameraProcessor {
     }
 
 public:
-    VisualCameraProcessor(std::shared_ptr<Camera> cam, int id, apriltag_detector_t* td) 
-        : camera_(cam), id_(id), td_(td), stream_(nullptr) {}
+    VisualCameraProcessor(std::shared_ptr<Camera> cam,
+        int id,
+        apriltag_detector_t* td,
+        std::vector<RobotPoseEstimate> globalPoseEstimates,
+        std::mutex globalPoseEstimateMutex
+    ) 
+        : camera_(cam), id_(id), td_(td), stream_(nullptr) globalPoseEstimates_(globalPoseEstimates) globalPoseEstimateMutex_(globalPoseEstimateMutex) {}
 
     void run() {
         if (camera_->acquire()) return;
@@ -137,6 +147,11 @@ public:
 
         std::vector<RobotPoseEstimate> poseEstimates = processDetections(&im, timestamp);
 
+        {
+            std::unique_lock lock(globalPoseEstimateMutex_);
+            globalPoseEstimates_.insert(globalPoseEstimates_.end(),poseEstimates.start(), poseEstimates.end());
+        }
+
         /*// 4. Show the frame in a window named after the Camera ID
         cv::imshow("Camera " + std::to_string(id_), visual);
         cv::waitKey(1); // Required for HighGUI to refresh the window
@@ -179,7 +194,8 @@ private:
                                      + tagPoseInCamera(1, 3)*tagPoseInCamera(1, 3)
                                      + tagPoseInCamera(2, 3)*tagPoseInCamera(2, 3));
 
-            current_estimate.err = err * range;
+            current_estimate.err_translation = err * range;
+            current_estimate.err_rotation = err;
             current_estimate.pose = robotPoseInGlobal;
             current_estimate.timestamp = ts;
 
@@ -205,10 +221,96 @@ private:
     FrameBufferAllocator *allocator_;
     std::map<const FrameBuffer *, uint8_t *> mappedBuffers_;
     std::vector<std::unique_ptr<Request>> requests_;
+    std::vector<RobotPoseEstimate>& globalPoseEstimates_;
+    std::mutex& globalPoseEstimateMutex_;
     static std::mutex output_mutex;
 };
 
 std::mutex VisualCameraProcessor::output_mutex;
+
+std::vector<RobotPoseEstimate> globalPoseEstimates;
+std::mutex globalPoseEstimateMutex;
+
+std::atomic<bool> isRunning = true;
+
+
+void netThread(std::vector<RobotPoseEstimate>& globalPoseEstimates,std::mutex& globalPoseEstimateMutex) {
+    int socket = socket(AF_INET, SOCK_STREAM, 0);
+    sockaddr_in serverAddress;
+    serverAddress.sin_family = AF_INET;
+    serverAddress.sin_port = htons(8080);
+    serverAddress.sin_addr.s_addr = INADDR_ANY;
+
+    connect(socket, (struct sockaddr*)&serverAddress, sizeof(serverAddress));
+
+
+    while (isRunning) {
+        while (true) {
+            unique_lock lock(globalPoseEstimateMutex);
+            if (globalPoseEstimates.size() > 0) {
+                break;
+            }
+        }
+        unique_lock lock(globalPoseEstimateMutex);
+        for (const RobotPoseEstimate& poseEstimate : globalPoseEstimates) {
+            struct structData {
+                double matrix[16],
+                double translationErr,
+                double rotationErr,
+                uint64_t timestamp
+            } posePacketStruct;
+
+            std::vector<double> vec(poseEstimate.pose.size());
+            Eigen::Map<Eigen::MatrixXf>(vec.data(), poseEstimate.pose.rows(), poseEstimate.pose.cols()) = poseEstimate.pose;
+
+            rawPosePacket.matrix = vec.data();
+            rawPosePacket.translationErr = poseEstimate.err_translation;
+            rawPosePacket.rotationErr = poseEstimate.err_rotation;
+            rawPosePacket.timestamp = staticposeEstimate.timestamp.value();
+
+            union{
+                structData structPacket;
+                unsigned char raw[sizeof(double) * 16 + sizeof(double) * 2 + sizeof(uint64_t)];
+            } posePacket;
+
+            posePacket.structPacket = posePacketStruct;
+
+            sendFull(
+                clientSocket,
+                posePacket.raw,
+                sizeof(double) * 16 + sizeof(double) * 2 + sizeof(uint64_t)
+            );
+        }
+    }
+
+    close(socket);
+}
+
+bool sendFull(int fd, char* message, int size) {
+    // prepare to send request
+    const char* ptr = request.c_str();
+    int nleft = request.length();
+    int nwritten;
+    // loop to be sure it is all sent
+    while (nleft) {
+        if ((nwritten = send(fd, ptr, nleft, 0)) < 0) {
+            if (errno == EINTR) {
+                // the socket call was interrupted -- try again
+                continue;
+            } else {
+                // an error occurred, so break out
+                perror("write");
+                return false;
+            }
+        } else if (nwritten == 0) {
+            // the socket is closed
+            return false;
+        }
+        nleft -= nwritten;
+        ptr += nwritten;
+    }
+    return true;
+}
 
 int main() {
     std::unique_ptr<CameraManager> cm = std::make_unique<CameraManager>();
@@ -232,10 +334,15 @@ int main() {
     VisualCameraProcessor Cam1(cameras[1], 1, td);
     Cam1.run();
 
+    std::thread networkThread(netThread, &globalPoseEstimates,&globalPoseEstimateMutex);
+    networkThread.detach();
+
     //std::cout << "Test mode active. Close window or press Ctrl+C to exit.\n";
     while (true) {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
+
+    isRunning = false;
 
     return 0;
 }
