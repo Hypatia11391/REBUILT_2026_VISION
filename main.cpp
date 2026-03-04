@@ -235,7 +235,7 @@ std::mutex globalPoseEstimateMutex;
 std::atomic<bool> isRunning = true;
 
 
-void netThread(std::vector<RobotPoseEstimate>& globalPoseEstimates,std::mutex& globalPoseEstimateMutex) {
+void netThread(std::vector<RobotPoseEstimate>* globalPoseEstimates,std::mutex* globalPoseEstimateMutex) {
     int socket = socket(AF_INET, SOCK_STREAM, 0);
     sockaddr_in serverAddress;
     serverAddress.sin_family = AF_INET;
@@ -335,7 +335,7 @@ int main() {
     VisualCameraProcessor Cam1(cameras[1], 1, td, globalPoseEstimates,globalPoseEstimateMutex);
     Cam1.run();
 
-    std::thread networkThread(netThread, globalPoseEstimates,globalPoseEstimateMutex);
+    std::thread networkThread(netThread, &globalPoseEstimates,&globalPoseEstimateMutex);
     networkThread.detach();
 
     //std::cout << "Test mode active. Close window or press Ctrl+C to exit.\n";
