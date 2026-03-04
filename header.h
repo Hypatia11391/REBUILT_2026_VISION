@@ -17,7 +17,7 @@ namespace constants {
     // Camera Configuration
 
     inline const std::array<CameraInfo, num_cams> Cameras = {{
-        {/*912.f, 912.f, 700.f, 500.f,*/ 972.339f, 972.207f, 667.5f, 595.f, (Eigen::Matrix4f() << 0,-1,0, 0.f, //972.339f, 972.207f, 712.366f, 538.83f,
+        {/*912.f, 912.f, 700.f, 500.f,*/ 972.339f, 972.207f, 655.f, 595.f, (Eigen::Matrix4f() << 0,-1,0, 0.f, //972.339f, 972.207f, 712.366f, 538.83f,
                                                                           0,0,-1,  0.f,
                                                                           1,0,0, 0.f,
                                                                           0,0,0,  1).finished()},
