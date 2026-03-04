@@ -247,13 +247,13 @@ void netThread(std::vector<RobotPoseEstimate>* globalPoseEstimates,std::mutex* g
 
     while (isRunning) {
         while (true) {
-            std::unique_lock lock(globalPoseEstimateMutex);
-            if (globalPoseEstimates.size() > 0) {
+            std::unique_lock lock(*globalPoseEstimateMutex);
+            if (globalPoseEstimates->size() > 0) {
                 break;
             }
         }
-        std::unique_lock lock(globalPoseEstimateMutex);
-        for (const RobotPoseEstimate& poseEstimate : globalPoseEstimates) {
+        std::unique_lock lock(*globalPoseEstimateMutex);
+        for (const RobotPoseEstimate& poseEstimate : *globalPoseEstimates) {
             struct structData {
                 double matrix[16];
                 double translationErr;
