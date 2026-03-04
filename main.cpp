@@ -27,14 +27,14 @@
 
 using namespace libcamera;
 
-class VisualCameraProcessor {
-    struct RobotPoseEstimate {
-        std::optional<uint64_t> timestamp;
-        double err_translation;
-        double err_rotation;
-        Eigen::Matrix4f pose;
-    };
-    
+struct RobotPoseEstimate {
+    std::optional<uint64_t> timestamp;
+    double err_translation;
+    double err_rotation;
+    Eigen::Matrix4f pose;
+};
+
+class VisualCameraProcessor {    
     Eigen::Matrix4f poseAprilTagToEigen(const apriltag_pose_t& pose) {
         Eigen::Matrix4f mat = Eigen::Matrix4f::Identity();
 
@@ -53,10 +53,10 @@ public:
     VisualCameraProcessor(std::shared_ptr<Camera> cam,
         int id,
         apriltag_detector_t* td,
-        std::vector<RobotPoseEstimate> globalPoseEstimates,
-        std::mutex globalPoseEstimateMutex
+        std::vector<RobotPoseEstimate>& globalPoseEstimates,
+        std::mutex& globalPoseEstimateMutex
     )
-        : camera_(cam), id_(id), td_(td), stream_(nullptr) globalPoseEstimates_(globalPoseEstimates) globalPoseEstimateMutex_(globalPoseEstimateMutex) {}
+        : camera_(cam), id_(id), td_(td), stream_(nullptr), globalPoseEstimates_(globalPoseEstimates), globalPoseEstimateMutex_(globalPoseEstimateMutex) {}
 
     void run() {
         if (camera_->acquire()) return;
@@ -149,7 +149,7 @@ public:
 
         {
             std::unique_lock lock(globalPoseEstimateMutex_);
-            globalPoseEstimates_.insert(globalPoseEstimates_.end(),poseEstimates.start(), poseEstimates.end());
+            globalPoseEstimates_.insert(globalPoseEstimates_.end(),poseEstimates.begin(), poseEstimates.end());
         }
 
         /*// 4. Show the frame in a window named after the Camera ID
@@ -246,12 +246,12 @@ void netThread(std::vector<RobotPoseEstimate>& globalPoseEstimates,std::mutex& g
 
     while (isRunning) {
         while (true) {
-            unique_lock lock(globalPoseEstimateMutex);
+            std::unique_lock lock(globalPoseEstimateMutex);
             if (globalPoseEstimates.size() > 0) {
                 break;
             }
         }
-        unique_lock lock(globalPoseEstimateMutex);
+        std::unique_lock lock(globalPoseEstimateMutex);
         for (const RobotPoseEstimate& poseEstimate : globalPoseEstimates) {
             struct structData {
                 double matrix[16],
@@ -286,10 +286,10 @@ void netThread(std::vector<RobotPoseEstimate>& globalPoseEstimates,std::mutex& g
     close(socket);
 }
 
-bool sendFull(int fd, char* message, int size) {
+bool sendFull(int fd, const char* message, int size) {
     // prepare to send request
-    const char* ptr = request.c_str();
-    int nleft = request.length();
+    const char* ptr = message;
+    int nleft = size;
     int nwritten;
     // loop to be sure it is all sent
     while (nleft) {
@@ -328,10 +328,10 @@ int main() {
     td->nthreads = 2;   // may need to adjust this
     td->refine_edges = 1;
 
-    VisualCameraProcessor Cam0(cameras[0], 0, td);
+    VisualCameraProcessor Cam0(cameras[0], 0, td, &globalPoseEstimates,&globalPoseEstimateMutex);
     Cam0.run();
 
-    VisualCameraProcessor Cam1(cameras[1], 1, td);
+    VisualCameraProcessor Cam1(cameras[1], 1, td, &globalPoseEstimates,&globalPoseEstimateMutex);
     Cam1.run();
 
     std::thread networkThread(netThread, &globalPoseEstimates,&globalPoseEstimateMutex);
