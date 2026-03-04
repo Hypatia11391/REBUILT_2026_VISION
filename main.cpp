@@ -22,6 +22,7 @@
 #include <netinet/in.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <netdb.h>
 #include <unistd.h>
 
 #include "header.h"
@@ -236,6 +237,25 @@ std::atomic<bool> isRunning = true;
 
 struct in_addr ROBORIO_ADDR = {0}; // TODO: CORRECTLY HAVE ROBORIO ADDRESS
 
+bool resolveRoboRIO(const std::string& hostname, struct in_addr& addr) {
+    struct addrinfo hints, *res;
+    std::memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+
+    int status = getaddrinfo(hostname.c_str(), nullptr, &hints, &res);
+    if (status != 0) {
+        std::cerr << "getaddrinfo error: " << gai_strerror(status) << std::endl;
+        return false;
+    }
+
+    struct sockaddr_in* ipv4 = (struct sockaddr_in*)res->ai_addr;
+    addr = ipv4->sin_addr;
+
+    freeaddrinfo(res);
+    return true;
+}
+
 bool sendFull(int fd, const char* message, size_t size) {
     // prepare to send request
     const char* ptr = message;
@@ -263,6 +283,18 @@ bool sendFull(int fd, const char* message, size_t size) {
 }
 
 void netThread(std::vector<RobotPoseEstimate>* globalPoseEstimates,std::mutex* globalPoseEstimateMutex) {
+    std::string roborio_hostname = "roborio-11391-frc.local"; 
+    
+    std::cout << "Resolving RoboRIO address..." << std::endl;
+    if (!resolveRoboRIO(roborio_hostname, ROBORIO_ADDR)) {
+        std::cerr << "Failed to resolve RoboRIO. Network features may fail." << std::endl;
+        // Optionally exit or retry
+    } else {
+        char ip_str[INET_ADDRSTRLEN];
+        inet_ntop(AF_INET, &ROBORIO_ADDR, ip_str, INET_ADDRSTRLEN);
+        std::cout << "RoboRIO resolved to: " << ip_str << std::endl;
+    }
+
     int clientSocket = socket(AF_INET, SOCK_STREAM, 0);
     sockaddr_in serverAddress;
     serverAddress.sin_family = AF_INET;
