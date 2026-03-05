@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <sys/mman.h>
 #include <chrono>
+#include <ctime>
 #include <netinet/in.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -237,7 +238,7 @@ std::mutex globalPoseEstimateMutex;
 std::atomic<bool> isRunning = true;
 
 struct in_addr ROBORIO_ADDR = {0}; // TODO: CORRECTLY HAVE ROBORIO ADDRESS
-
+/*
 bool resolveRoboRIO(const std::string& hostname, struct in_addr& addr) {
     struct addrinfo hints, *res;
     std::memset(&hints, 0, sizeof(hints));
@@ -248,7 +249,6 @@ bool resolveRoboRIO(const std::string& hostname, struct in_addr& addr) {
     if (status != 0) {
         std::cerr << "getaddrinfo error: " << gai_strerror(status) << std::endl;
         return false;
-    }
 
     struct sockaddr_in* ipv4 = (struct sockaddr_in*)res->ai_addr;
     addr = ipv4->sin_addr;
@@ -256,6 +256,7 @@ bool resolveRoboRIO(const std::string& hostname, struct in_addr& addr) {
     freeaddrinfo(res);
     return true;
 }
+*/
 
 bool sendFull(int fd, const char* message, size_t size) {
     // prepare to send request
@@ -263,28 +264,35 @@ bool sendFull(int fd, const char* message, size_t size) {
     int nleft = static_cast<int>(size);
     int nwritten;
     // loop to be sure it is all sent
+    std::cout << "about to send loop" << std::endl;
     while (nleft) {
-        if ((nwritten = send(fd, ptr, nleft, 0)) < 0) {
+        nwritten = send(fd, ptr, nleft, MSG_NOSIGNAL);
+        if (nwritten < 0) {
             if (errno == EINTR) {
                 // the socket call was interrupted -- try again
+                std::cout << "socket interrupted" << std::endl;
                 continue;
             } else {
+                std::cout << "err" << std::endl;
                 // an error occurred, so break out
                 perror("write");
                 return false;
             }
         } else if (nwritten == 0) {
             // the socket is closed
+            std::cout << "closed socket" << std::endl;
             return false;
         }
         nleft -= nwritten;
         ptr += nwritten;
+        std::cout << "wrote " << nwritten << " bytes to socket" << std::endl;
     }
     return true;
 }
 
 void netThread(std::vector<RobotPoseEstimate>* globalPoseEstimates,std::mutex* globalPoseEstimateMutex) {
-    std::string roborio_hostname = "roborio-11391-frc.local"; 
+    /*
+    std::string roborio_hostname = "oborio-11391-frc.local"; 
     
     std::cout << "Resolving RoboRIO address..." << std::endl;
     if (!resolveRoboRIO(roborio_hostname, ROBORIO_ADDR)) {
@@ -294,32 +302,37 @@ void netThread(std::vector<RobotPoseEstimate>* globalPoseEstimates,std::mutex* g
         char ip_str[INET_ADDRSTRLEN];
         inet_ntop(AF_INET, &ROBORIO_ADDR, ip_str, INET_ADDRSTRLEN);
         std::cout << "RoboRIO resolved to: " << ip_str << std::endl;
-    }
+    }*/
 
     int clientSocket = socket(AF_INET, SOCK_STREAM, 0);
     sockaddr_in serverAddress;
     serverAddress.sin_family = AF_INET;
     serverAddress.sin_port = htons(8080);
-    serverAddress.sin_addr.s_addr = ROBORIO_ADDR.s_addr;
+    inet_pton(AF_INET,"10.113.91.2",&serverAddress.sin_addr);
 
     connect(clientSocket, (struct sockaddr*)&serverAddress, sizeof(serverAddress));
 
+    std::cout << "RoboRIO connection attempted" << std::endl;
+
+    bool has_sent = 0;
 
     while (isRunning) {
         while (true) {
             std::unique_lock lock(*globalPoseEstimateMutex);
             if (globalPoseEstimates->size() > 0) {
+                std::cout << "noticed new pose estimates" << std::endl;
                 break;
             }
         }
         std::unique_lock lock(*globalPoseEstimateMutex);
         for (const RobotPoseEstimate& poseEstimate : *globalPoseEstimates) {
-            struct structData {
+            /*struct structData {
                 double matrix[16];
                 double translationErr;
                 double rotationErr;
                 uint64_t timestamp;
             } posePacketStruct;
+             std::cout << "read pose estimate (network)" << std::endl;
 
             // std::vector<double> vec(poseEstimate.pose.size());
             //for(int i=0;i<16;i++) {
@@ -327,27 +340,57 @@ void netThread(std::vector<RobotPoseEstimate>* globalPoseEstimates,std::mutex* g
             //}
             //Eigen::Map<Eigen::Matrix4f>(posePacketStruct.matrix);
             for(int i=0;i<16;i++) {
-        posePacketStruct.matrix[i] = static_cast<double>(*(poseEstimate.pose.data() + i));
+                posePacketStruct.matrix[i] = static_cast<double>(*(poseEstimate.pose.data() + i));
             }
 
             // copy(vec.begin(), vec.end(), posePacketStruct.matrix);
             posePacketStruct.translationErr = poseEstimate.err_translation;
-            posePacketStruct.rotationErr = poseEstimate.err_rotation;
-            posePacketStruct.timestamp = poseEstimate.timestamp.value();
+            posePacketStruct.rotationErr = poseEstimate.err_rotation;*/
 
-            union{
+            std::ostringstream sstream;
+            for(int i=0;i<16;i++) {
+               sstream << static_cast<double>(*(poseEstimate.pose.data() + i));
+               sstream << ',';
+            }
+	    long timestamp = 1;
+	    if (!has_sent) { 
+               timestamp = std::chrono::system_clock::now().time_since_epoch() / std::chrono::nanoseconds(1);
+               
+               has_sent = true;
+	    } else {
+		timestamp = poseEstimate.timestamp.value();
+            };
+            
+            sstream << timestamp;
+            std::cout << "data in pose struct" << std::endl;
+            sstream << ',';
+            sstream << poseEstimate.err_translation;
+            /*union {
                 structData structPacket;
-                char raw[sizeof(double) * 16 + sizeof(double) * 2 + sizeof(uint64_t)];
+                char raw[sizeof(double) * 4 * 4 + sizeof(double) * 2 + sizeof(uint64_t)];
             } posePacket;
 
             posePacket.structPacket = posePacketStruct;
+            std::cout << posePacketStruct.matrix << std::endl;*/
+ 
+            std::string string = sstream.str();
+            const char* str = string.c_str();
 
-            sendFull(
-                clientSocket,
-                posePacket.raw,
-                sizeof(double) * 16 + sizeof(double) * 2 + sizeof(uint64_t)
-            );
+            std::cout << "about to send" << std::endl;
+            try {
+                sendFull(
+                    clientSocket,
+                    str,
+                    string.length()
+                );
+            } catch (const std::exception& e) {
+                std::cout << "caught exception" << std::endl;
+		// std::cout << e << std::endl;
+            }
+            std::cout << "sent pose" << std::endl;
         }
+        globalPoseEstimates->clear();
+        std::cout << "isRunning: " << isRunning << std::endl;
     }
 
     close(clientSocket);
