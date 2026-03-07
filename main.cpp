@@ -317,14 +317,11 @@ void netThread(std::vector<RobotPoseEstimate>* globalPoseEstimates,std::mutex* g
     bool has_sent = 0;
 
     while (isRunning) {
-        while (true) {
-            std::unique_lock lock(*globalPoseEstimateMutex);
-            if (globalPoseEstimates->size() > 0) {
-                std::cout << "noticed new pose estimates" << std::endl;
-                break;
-            }
-        }
         std::unique_lock lock(*globalPoseEstimateMutex);
+        if (globalPoseEstimates->size() == 0) {
+            continue;
+        }
+        std::cout << "noticed new pose estimates" << std::endl;
         for (const RobotPoseEstimate& poseEstimate : *globalPoseEstimates) {
             /*struct structData {
                 double matrix[16];
@@ -351,6 +348,7 @@ void netThread(std::vector<RobotPoseEstimate>* globalPoseEstimates,std::mutex* g
             for(int i=0;i<16;i++) {
                sstream << static_cast<double>(*(poseEstimate.pose.data() + i));
                sstream << ',';
+               std::cout << static_cast<double>(*(poseEstimate.pose.data() + i)) << std::endl;
             }
 	    long timestamp = 1;
 	    if (!has_sent) { 
@@ -375,13 +373,14 @@ void netThread(std::vector<RobotPoseEstimate>* globalPoseEstimates,std::mutex* g
  
             std::string string = sstream.str();
             const char* str = string.c_str();
-
-            std::cout << "about to send" << std::endl;
+            
+            
+            std::cout << "about to send: " << string << std::endl;
             try {
                 sendFull(
                     clientSocket,
                     str,
-                    string.length()
+                    string.length() + 1
                 );
             } catch (const std::exception& e) {
                 std::cout << "caught exception" << std::endl;
