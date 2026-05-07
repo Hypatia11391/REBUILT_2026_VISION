@@ -26,6 +26,8 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <stdio.h>
+#include <errno.h>
 
 #include "header.h"
 
@@ -35,20 +37,20 @@ struct RobotPoseEstimate {
     std::optional<uint64_t> timestamp;
     double err_translation;
     double err_rotation;
-    Eigen::Matrix4f pose;
+    Eigen::Matrix4d pose;
 };
 
 class VisualCameraProcessor {    
-    Eigen::Matrix4f poseAprilTagToEigen(const apriltag_pose_t& pose) {
-        Eigen::Matrix4f mat = Eigen::Matrix4f::Identity();
+    Eigen::Matrix4d poseAprilTagToEigen(const apriltag_pose_t& pose) {
+        Eigen::Matrix4d mat = Eigen::Matrix4d::Identity();
 
         // Map the 3x3 rotation matrix (double to float)
         Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>> R(pose.R->data);
-        mat.block<3, 3>(0, 0) = R.cast<float>();
+        mat.block<3, 3>(0, 0) = R.cast<double>();
 
         // Map the 3x1 translation vector (double to float)
         Eigen::Map<Eigen::Matrix<double, 3, 1>> t(pose.t->data);
-        mat.block<3, 1>(0, 3) = t.cast<float>();
+        mat.block<3, 1>(0, 3) = t.cast<double>();
 
         return mat;
     }
@@ -189,10 +191,10 @@ private:
             apriltag_pose_t pose;
             double err = estimate_tag_pose(&info, &pose);
 
-            Eigen::Matrix4f tagPoseInCamera = poseAprilTagToEigen(pose);
+            Eigen::Matrix4d tagPoseInCamera = poseAprilTagToEigen(pose);
             //std::cout << tagPoseInCamera << std::endl;
-            Eigen::Matrix4f cameraPoseInTag = tagPoseInCamera.inverse();
-            Eigen::Matrix4f robotPoseInGlobal = constants::AprilTagPosesInGlobal[det->id - 1] * cameraPoseInTag * constants::Cameras[id_].RobotPoseInCamera;
+            Eigen::Matrix4d cameraPoseInTag = tagPoseInCamera.inverse();
+            Eigen::Matrix4d robotPoseInGlobal = constants::AprilTagPosesInGlobal[det->id - 1] * cameraPoseInTag * constants::Cameras[id_].RobotPoseInCamera;
 
             double range = std::sqrt(tagPoseInCamera(0, 3)*tagPoseInCamera(0, 3)
                                      + tagPoseInCamera(1, 3)*tagPoseInCamera(1, 3)
@@ -307,12 +309,18 @@ void netThread(std::vector<RobotPoseEstimate>* globalPoseEstimates,std::mutex* g
     int clientSocket = socket(AF_INET, SOCK_STREAM, 0);
     sockaddr_in serverAddress;
     serverAddress.sin_family = AF_INET;
-    serverAddress.sin_port = htons(8080);
+    serverAddress.sin_port = htons(11211);
     inet_pton(AF_INET,"10.113.91.2",&serverAddress.sin_addr);
 
-    connect(clientSocket, (struct sockaddr*)&serverAddress, sizeof(serverAddress));
+    int failed = connect(clientSocket, (struct sockaddr*)&serverAddress, sizeof(serverAddress));
+    std::cout << "Failed Connection = " << failed << std::endl;
+
+    if (failed) {
+	perror("Error in connection");
+    }
 
     std::cout << "RoboRIO connection attempted" << std::endl;
+    
 
     bool has_sent = 0;
 
@@ -323,11 +331,11 @@ void netThread(std::vector<RobotPoseEstimate>* globalPoseEstimates,std::mutex* g
         }
         std::cout << "noticed new pose estimates" << std::endl;
         for (const RobotPoseEstimate& poseEstimate : *globalPoseEstimates) {
-            /*struct structData {
+            struct structData {
                 double matrix[16];
+                uint64_t timestamp;
                 double translationErr;
                 double rotationErr;
-                uint64_t timestamp;
             } posePacketStruct;
              std::cout << "read pose estimate (network)" << std::endl;
 
@@ -335,15 +343,16 @@ void netThread(std::vector<RobotPoseEstimate>* globalPoseEstimates,std::mutex* g
             //for(int i=0;i<16;i++) {
             //    posePacketStruct.matrix[i] = i;
             //}
-            //Eigen::Map<Eigen::Matrix4f>(posePacketStruct.matrix);
+            //Eigen::Map<Eigen::Matrix4d>(posePacketStruct.matrix);
             for(int i=0;i<16;i++) {
                 posePacketStruct.matrix[i] = static_cast<double>(*(poseEstimate.pose.data() + i));
             }
 
             // copy(vec.begin(), vec.end(), posePacketStruct.matrix);
             posePacketStruct.translationErr = poseEstimate.err_translation;
-            posePacketStruct.rotationErr = poseEstimate.err_rotation;*/
+            posePacketStruct.rotationErr = poseEstimate.err_rotation;
 
+            /*
             std::ostringstream sstream;
             for(int i=0;i<16;i++) {
                sstream << static_cast<double>(*(poseEstimate.pose.data() + i));
@@ -363,24 +372,22 @@ void netThread(std::vector<RobotPoseEstimate>* globalPoseEstimates,std::mutex* g
             std::cout << "data in pose struct" << std::endl;
             sstream << ',';
             sstream << poseEstimate.err_translation;
-            /*union {
+            */
+
+            union {
                 structData structPacket;
                 char raw[sizeof(double) * 4 * 4 + sizeof(double) * 2 + sizeof(uint64_t)];
             } posePacket;
 
             posePacket.structPacket = posePacketStruct;
-            std::cout << posePacketStruct.matrix << std::endl;*/
- 
-            std::string string = sstream.str();
-            const char* str = string.c_str();
-            
-            
-            std::cout << "about to send: " << string << std::endl;
+            std::cout << posePacketStruct.matrix << std::endl;
+
+            std::cout << "about to send" << std::endl;
             try {
                 sendFull(
                     clientSocket,
-                    str,
-                    string.length() + 1
+                    posePacket.raw,
+                    sizeof(posePacketStruct)
                 );
             } catch (const std::exception& e) {
                 std::cout << "caught exception" << std::endl;
