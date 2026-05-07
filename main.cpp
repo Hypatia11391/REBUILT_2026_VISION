@@ -149,7 +149,7 @@ public:
                         cv::FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(0, 255, 255), 2);
         }*/
 
-        std::vector<RobotPoseEstimate> poseEstimates = processDetections(&im, timestamp);
+        std::vector<RobotPoseEstimate> poseEstimates = processDetections(&im, timestamp); // <-------- is this optimizable? Memory allocation. Will it reasign to the same location? Use pointer? Make static?
 
         {
             std::unique_lock lock(globalPoseEstimateMutex_);
@@ -165,14 +165,79 @@ public:
         camera_->queueRequest(request);
     }
 
-private:
+private: // <--------------------------------------------------------------- ToDo: Finish the pose pnp edits
+    cv::Point3f getObjPoint(id, corner_num) {
+            double tagRad = constants::tag_size/2.0;
+            Eigen::Matrix4d transformToGlobal = constants::AprilTagPosesInGlobal[id-1].inverse();
+
+            std::array<Eigen::Vector3d, 4> objPointChoices;
+            objPointChoices[0] = tagRad*Eigen::Vector3d(-1.0, -1.0, 0.0);
+            objPointChoices[1] = tagRad*Eigen::Vector3d(1.0, -1.0, 0.0);
+            objPointChoices[2] = tagRad*Eigen::Vector3d(1.0, 1.0, 0.0);
+            objPointChoices[3] = tagRad*Eigen::Vector3d(-1.0, 1.0, 0.0);
+
+            Eigen::Vector3d objPointEigen = transformToGlobal * objPointChoices[corner_num];
+
+            cv::Point3d objPoint = cv::Point3d(objPointEigen[0], objPointEigen[1], objPointEigen[2]);
+        
+        return objPoint;
+    }
+
     std::vector<RobotPoseEstimate> processDetections(image_u8_t* im, uint64_t ts) {
         std::vector<RobotPoseEstimate> poseEstimates;
         RobotPoseEstimate current_estimate;
 
         zarray_t *detections = apriltag_detector_detect(td_, im);
+
+        std::vector<cv::Point3f> object_pts; // <------------- Should be double?
+        std::vector<cv::Point2f> image_pts;
+// <--------------------------------------------------------------- ToDo: Finish the pose pnp edits Use getObjPoint. See https://github.com/personalrobotics/apriltags/blob/master/src/apriltags.cpp for more info.
+        for (int i; i < zarray_size(detections); i++) {
+            apriltag_detection_t *det;
+            zarray_get(detections, i, &det);
+
+            if (det->id < 1 || det->id > 32) continue;
+
+            for (int corner; corner < 4; corner++) {
+                object_pts.pushback(getObjPoint(det->id, corner));
+                image_pts.pushback(cv::Point2f(det->p[j][0], det->p[j][1]));// <------------- Should be double? Static cast?
+            }
+        }
         
-        apriltag_detection_info_t info;
+        cv::Mat rvec;
+        cv::Mat tvec;
+        cv::Mat inliers;
+        
+        bool successfulPnP = cv::solvePnPRansac(objectPoints,
+                                                imagePoints,
+                                                constants::Cameras[id_].intrinsics,
+                                                constants::Cameras[id_].distortion_coeff,
+                                                rvec,
+                                                tvec,
+                                                false,             // useExtrinsicGuess <------------ Coulb be true with an estimation of current pose as just the last frame. Try if needed for time optimization.
+                                                100,               // iterationsCount
+                                                8.0,              // reprojectionError (threshold to consider a point an inlier)
+                                                0.99,              // confidence
+                                                inliers,
+                                                cv::SOLVEPNP_ITERATIVE);
+
+        if (successfulPnP) {
+            Eigen::Matrix4f cameraPose = Eigen::Matrix4f::Identity();
+
+            // Map the 3x3 rotation matrix
+            Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>> R(rvec);
+            cameraPose.block<3, 3>(0, 0) = R;
+
+            // Map the 3x1 translation vector (double to float)
+            Eigen::Map<Eigen::Matrix<double, 3, 1>> t(tvec);
+            cameraPose.block<3, 1>(0, 3) = t;
+
+            current_estimate.pose = cameraPose * constants::Cameras[id_].RobotPoseInCamera;
+            current_estimate.err_translation = 1.0; // ToDo <---------------------------------------------------------------------
+            current_estimate.err_rotation = 1.0;
+            current_estimate.timestamp = ts;
+
+/*        apriltag_detection_info_t info;
         info.tagsize = constants::tag_size; 
         info.fx = constants::Cameras[id_].fx;
         info.fy = constants::Cameras[id_].fy;
@@ -201,7 +266,7 @@ private:
             current_estimate.err_translation = range; // Note apriltag_pose_t err measurements are to variable to be useful. Use static proportionality const.
             current_estimate.err_rotation = 1.0;
             current_estimate.pose = robotPoseInGlobal;
-            current_estimate.timestamp = ts;
+            current_estimate.timestamp = ts;*/
 
             poseEstimates.push_back(current_estimate);
             
