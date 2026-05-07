@@ -168,7 +168,7 @@ public:
     }
 
 private: // <--------------------------------------------------------------- ToDo: Finish the pose pnp edits
-    cv::Point3f getObjPoint(id, corner_num) {
+    cv::Point3f getObjPoint(int id, int corner_num) {
             double tagRad = constants::tag_size/2.0;
             Eigen::Matrix4d transformToGlobal = constants::AprilTagPosesInGlobal[id-1].inverse();
 
@@ -178,7 +178,9 @@ private: // <--------------------------------------------------------------- ToD
             objPointChoices[2] = tagRad*Eigen::Vector3d(1.0, 1.0, 0.0);
             objPointChoices[3] = tagRad*Eigen::Vector3d(-1.0, 1.0, 0.0);
 
-            Eigen::Vector3d objPointEigen = transformToGlobal * objPointChoices[corner_num];
+	    Eigen::Vector4d  homogPoint;
+	    homogPoint <<  objPointChoices[corner_num], 1.0;
+            Eigen::Vector4d objPointEigen = transformToGlobal * homogPoint;
 
             cv::Point3d objPoint = cv::Point3d(objPointEigen[0], objPointEigen[1], objPointEigen[2]);
         
@@ -201,8 +203,8 @@ private: // <--------------------------------------------------------------- ToD
             if (det->id < 1 || det->id > 32) continue;
 
             for (int corner; corner < 4; corner++) {
-                object_pts.pushback(getObjPoint(det->id, corner));
-                image_pts.pushback(cv::Point2f(det->p[j][0], det->p[j][1]));// <------------- Should be double? Static cast?
+                object_pts.push_back(getObjPoint(det->id, corner));
+                image_pts.push_back(cv::Point2f(det->p[corner][0], det->p[corner][1]));// <------------- Should be double? Static cast?
             }
         }
         
@@ -210,8 +212,8 @@ private: // <--------------------------------------------------------------- ToD
         cv::Mat tvec;
         cv::Mat inliers;
         
-        bool successfulPnP = cv::solvePnPRansac(objectPoints,
-                                                imagePoints,
+        bool successfulPnP = cv::solvePnPRansac(object_pts,
+                                                image_pts,
                                                 constants::Cameras[id_].intrinsics,
                                                 constants::Cameras[id_].distortion_coeff,
                                                 rvec,
@@ -224,14 +226,14 @@ private: // <--------------------------------------------------------------- ToD
                                                 cv::SOLVEPNP_ITERATIVE);
 
         if (successfulPnP) {
-            Eigen::Matrix4f cameraPose = Eigen::Matrix4f::Identity();
+            Eigen::Matrix4d cameraPose = Eigen::Matrix4d::Identity();
 
             // Map the 3x3 rotation matrix
-            Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>> R(rvec);
+            Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>> R(rvec.ptr<double>());
             cameraPose.block<3, 3>(0, 0) = R;
 
             // Map the 3x1 translation vector (double to float)
-            Eigen::Map<Eigen::Matrix<double, 3, 1>> t(tvec);
+            Eigen::Map<Eigen::Matrix<double, 3, 1>> t(tvec.ptr<double>());
             cameraPose.block<3, 1>(0, 3) = t;
 
             current_estimate.pose = cameraPose * constants::Cameras[id_].RobotPoseInCamera;
@@ -274,10 +276,10 @@ private: // <--------------------------------------------------------------- ToD
             
             std::lock_guard<std::mutex> lock(output_mutex);
             //DEBUG print
-            std::cout << "@ time t = " << static_cast<int64_t>(current_estimate.timestamp.value_or(0)) << ", cam " << id_ << " | Tag " << det->id << " detected Global Pose:\n" << robotPoseInGlobal << "\n";
+            std::cout << "@ time t = " << static_cast<int64_t>(current_estimate.timestamp.value_or(0)) << ", cam " << id_ /*<< " | Tag " << det->id*/ << " detected Global Pose:\n" << current_estimate.pose << "\n";
 
             //std::cout << "Range: " << range << std::endl;
-            std::cout << "Range: " << range << "\n \n";
+            //std::cout << "Range: " << range << "\n \n";
         }
         apriltag_detections_destroy(detections);
 

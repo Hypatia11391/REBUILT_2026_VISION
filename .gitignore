@@ -1,4 +1,8 @@
-# Ignore the python vertual enviornment.
-.venv
-build
-__pycache__
+.venv/
+build.sh
+build/
+calibration/
+opencv/
+eigen3/
+logs/
+Test/

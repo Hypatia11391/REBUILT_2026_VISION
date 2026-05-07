@@ -24,13 +24,18 @@ namespace constants {
                                                                                            0,1,0, -0.355f,
                                                                                            0,0,0,  1).finished()},*/
     {
-        (cv::Matx33d() << 900.0, 0, 655.0, //972.339f, 972.207f, 712.366f, 538.83f,
-                                0, 900.0, 595.0,
-                                0, 0, 1).finished(),
-        (cv::Vec4d() << 0.0, 0.0, 0.0, 0.0).finished(), // <---------- PLACEHOLDER
-        (Eigen::Matrix4d() << 0,0,-1, 0.282f, 
-                            -1,0,0,  -0.15f,
-                            0,1,0, -0.355f,
+	// Intrinsics matrix
+        cv::Matx33d(900.0, 0, 655.0, //972.339f, 972.207f, 712.366f, 538.83f,
+                    0, 900.0, 595.0,
+                    0, 0, 1),
+
+	// Distortion vector
+        cv::Vec4d(0.0, 0.0, 0.0, 0.0), // <---------- PLACEHOLDER
+
+	// Pose matrix
+        (Eigen::Matrix4d() << 0,0,-1, 0.282, 
+                            -1,0,0,  -0.15,
+                            0,1,0, -0.355,
                             0,0,0,  1).finished()
     },
 // z to -x x to z
@@ -39,13 +44,18 @@ namespace constants {
                                                                               1,0,0, 0.10f,
                                                                           0,0,0,  1).finished()*/
     {
-        (cv::Matx33d() << 900.0, 0, 627.0,
-                                0, 900.0, 550.0,
-                                0, 0, 1).finished(),
-        (cv::Vec4d() << 0.0, 0.0, 0.0, 0.0).finished(), // <---------- PLACEHOLDER
-        (Eigen::Matrix4d() << 0,0,1, -0.07f,
-                            0,-1,0,  0.155f,
-                            1,0,0, 0.10f,
+	// Intrinsics matrix
+        cv::Matx33d(900.0, 0, 627.0,
+                    0, 900.0, 550.0,
+                    0, 0, 1),
+	// Distortion vector
+
+        cv::Vec4d(0.0, 0.0, 0.0, 0.0), // <---------- PLACEHOLDER
+
+	// Pose matrix
+        (Eigen::Matrix4d() << 0,0,1, -0.07,
+                            0,-1,0,  0.155,
+                            1,0,0, 0.10,
                             0,0,0,  1).finished()
     }}};
 
