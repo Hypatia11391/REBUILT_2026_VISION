@@ -6,7 +6,8 @@ namespace constants {
 
     // Define a datatype to hold camera info
     struct CameraInfo {
-        double fx, fy, cx, cy; 
+        cv::Matx33d intrinsics;
+        cv::Vec4d distortion_coeff;
         Eigen::Matrix4d RobotPoseInCamera;
     };
 
@@ -18,16 +19,35 @@ namespace constants {
 
     inline const std::array<CameraInfo, num_cams> Cameras = {{
 // z to x x to y y to z
-        {/*912., 912., 700., 500.,*/ 900, 900, 655, 595, (Eigen::Matrix4d() << 0,0,-1, 0.282, //972.339, 972.207, 712.366, 538.83,
-                                                                                           -1,0,0,  -0.15,
-                                                                                           0,1,0, -0.355,
-                                                                                           0,0,0,  1).finished()},
+        /*{900.f, 900.f, 655.f, 595.f, (Eigen::Matrix4f() << 0,0,-1, 0.282f, //972.339f, 972.207f, 712.366f, 538.83f,
+                                                                                           -1,0,0,  -0.15f,
+                                                                                           0,1,0, -0.355f,
+                                                                                           0,0,0,  1).finished()},*/
+    {
+        (cv::Matx33d() << 900.0, 0, 655.0, //972.339f, 972.207f, 712.366f, 538.83f,
+                                0, 900.0, 595.0,
+                                0, 0, 1).finished(),
+        (cv::Vec4d() << 0.0, 0.0, 0.0, 0.0).finished(), // <---------- PLACEHOLDER
+        (Eigen::Matrix4d() << 0,0,-1, 0.282f, 
+                            -1,0,0,  -0.15f,
+                            0,1,0, -0.355f,
+                            0,0,0,  1).finished()
+    },
 // z to -x x to z
-        {/*915., 915.,*/ 900, 900, 627.5, 550, (Eigen::Matrix4d() << 0,0,1, -0.07, //971.697, 970.822, 660.752, 519.795,
-                                                                              0,-1,0,  0.155,
-                                                                              1,0,0, 0.10,
-                                                                              0,0,0,  1).finished()}
-    }};
+        /*{900.f, 900.f, 627.5f, 550.f, (Eigen::Matrix4f() << 0,0,1, -0.07f, //971.697f, 970.822f, 660.752f, 519.795f,
+                                                                              0,-1,0,  0.155f,
+                                                                              1,0,0, 0.10f,
+                                                                          0,0,0,  1).finished()*/
+    {
+        (cv::Matx33d() << 900.0, 0, 627.0,
+                                0, 900.0, 550.0,
+                                0, 0, 1).finished(),
+        (cv::Vec4d() << 0.0, 0.0, 0.0, 0.0).finished(), // <---------- PLACEHOLDER
+        (Eigen::Matrix4d() << 0,0,1, -0.07f,
+                            0,-1,0,  0.155f,
+                            1,0,0, 0.10f,
+                            0,0,0,  1).finished()
+    }}};
 
     // AprilTag Field Poses (ID = index + 1)
     inline const std::array<Eigen::Matrix4d, 32> AprilTagPosesInGlobal = {{

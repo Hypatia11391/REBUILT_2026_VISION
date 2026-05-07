@@ -1,3 +1,4 @@
 # Ignore the python vertual enviornment.
 .venv
 build
+__pycache__
