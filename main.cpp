@@ -41,7 +41,7 @@ struct RobotPoseEstimate {
 };
 
 class VisualCameraProcessor {    
-    Eigen::Matrix4d poseAprilTagToEigen(const apriltag_pose_t& pose) {
+    /*Eigen::Matrix4d poseAprilTagToEigen(const apriltag_pose_t& pose) {
         Eigen::Matrix4d mat = Eigen::Matrix4d::Identity();
 
         // Map the 3x3 rotation matrix (double to float)
@@ -53,7 +53,7 @@ class VisualCameraProcessor {
         mat.block<3, 1>(0, 3) = t.cast<double>();
 
         return mat;
-    }
+    } */
 
 public:
     VisualCameraProcessor(std::shared_ptr<Camera> cam,
@@ -119,49 +119,12 @@ public:
             .buf = thresholded.data
         };
 
-        /*//zarray_t *detections = apriltag_detector_detect(td_, &im);
-
-        // 2. Convert to BGR so we can draw colored lines/text
-        cv::Mat visual;
-        cv::cvtColor(gray, visual, cv::COLOR_GRAY2BGR);
-
-        // 3. AprilTag Detection
-        //image_u8_t im{ .width = 1456, .height = 1088, .stride = 1456, .buf = data };
-        zarray_t *detections = apriltag_detector_detect(td_, &im);
-
-        // DEBUG: Print if anything is found at all
-        if (zarray_size(detections) > 0) {
-            std::cout << "Detected " << zarray_size(detections) << " tags!" << std::endl;
-        }
-
-        for (int i = 0; i < zarray_size(detections); i++) {
-            apriltag_detection_t *det;
-            zarray_get(detections, i, &det);
-
-            // DRAWING LOGIC:
-            // Draw lines between the 4 corners of the tag
-            line(visual, cv::Point(det->p[0][0], det->p[0][1]), cv::Point(det->p[1][0], det->p[1][1]), cv::Scalar(0, 0, 255), 2);
-            line(visual, cv::Point(det->p[1][0], det->p[1][1]), cv::Point(det->p[2][0], det->p[2][1]), cv::Scalar(0, 255, 0), 2);
-            line(visual, cv::Point(det->p[2][0], det->p[2][1]), cv::Point(det->p[3][0], det->p[3][1]), cv::Scalar(255, 0, 0), 2);
-            line(visual, cv::Point(det->p[3][0], det->p[3][1]), cv::Point(det->p[0][0], det->p[0][1]), cv::Scalar(255, 255, 0), 2);
-
-            // Label the Tag ID
-            std::string text = "ID: " + std::to_string(det->id);
-            cv::putText(visual, text, cv::Point(det->c[0]-5, det->c[1]-5), 
-                        cv::FONT_HERSHEY_SIMPLEX, 0.8, cv::Scalar(0, 255, 255), 2);
-        }*/
-
         std::vector<RobotPoseEstimate> poseEstimates = processDetections(&im, timestamp); // <-------- is this optimizable? Memory allocation. Will it reasign to the same location? Use pointer? Make static?
 
         {
             std::unique_lock lock(globalPoseEstimateMutex_);
             globalPoseEstimates_.insert(globalPoseEstimates_.end(),poseEstimates.begin(), poseEstimates.end());
         }
-
-        /*// 4. Show the frame in a window named after the Camera ID
-        cv::imshow("Camera " + std::to_string(id_), visual);
-        cv::waitKey(1); // Required for HighGUI to refresh the window
-        apriltag_detections_destroy(detections);*/
 
         request->reuse(Request::ReuseBuffers);
         camera_->queueRequest(request);
@@ -193,93 +156,64 @@ private: // <--------------------------------------------------------------- ToD
 
         zarray_t *detections = apriltag_detector_detect(td_, im);
 
-        std::vector<cv::Point3f> object_pts; // <------------- Should be double?
-        std::vector<cv::Point2f> image_pts;
-// <--------------------------------------------------------------- ToDo: Finish the pose pnp edits Use getObjPoint. See https://github.com/personalrobotics/apriltags/blob/master/src/apriltags.cpp for more info.
-        for (int i; i < zarray_size(detections); i++) {
-            apriltag_detection_t *det;
-            zarray_get(detections, i, &det);
+        // If tags are detected compute the pose
+        // See https://github.com/personalrobotics/apriltags/blob/master/src/apriltags.cpp for relevant example in apriltag source code.
+        if (zarray_size(detections)) {
+            std::vector<cv::Point3f> object_pts; // <------------- Should be double?
+            std::vector<cv::Point2f> image_pts;
 
-            if (det->id < 1 || det->id > 32) continue;
+            for (int i; i < zarray_size(detections); i++) {
+                apriltag_detection_t *det;
+                zarray_get(detections, i, &det);
 
-            for (int corner; corner < 4; corner++) {
-                object_pts.push_back(getObjPoint(det->id, corner));
-                image_pts.push_back(cv::Point2f(det->p[corner][0], det->p[corner][1]));// <------------- Should be double? Static cast?
+                if (det->id < 1 || det->id > 32) continue;
+
+                for (int corner; corner < 4; corner++) {
+                    object_pts.push_back(getObjPoint(det->id, corner));
+                    image_pts.push_back(cv::Point2f(det->p[corner][0], det->p[corner][1]));// <------------- Should be double? Static cast?
+                }
             }
-        }
-        
-        cv::Mat rvec;
-        cv::Mat tvec;
-        cv::Mat inliers;
-        
-        bool successfulPnP = cv::solvePnPRansac(object_pts,
-                                                image_pts,
-                                                constants::Cameras[id_].intrinsics,
-                                                constants::Cameras[id_].distortion_coeff,
-                                                rvec,
-                                                tvec,
-                                                false,             // useExtrinsicGuess <------------ Coulb be true with an estimation of current pose as just the last frame. Try if needed for time optimization.
-                                                100,               // iterationsCount
-                                                8.0,              // reprojectionError (threshold to consider a point an inlier)
-                                                0.99,              // confidence
-                                                inliers,
-                                                cv::SOLVEPNP_ITERATIVE);
-
-        if (successfulPnP) {
-            Eigen::Matrix4d cameraPose = Eigen::Matrix4d::Identity();
-
-            // Map the 3x3 rotation matrix
-            Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>> R(rvec.ptr<double>());
-            cameraPose.block<3, 3>(0, 0) = R;
-
-            // Map the 3x1 translation vector (double to float)
-            Eigen::Map<Eigen::Matrix<double, 3, 1>> t(tvec.ptr<double>());
-            cameraPose.block<3, 1>(0, 3) = t;
-
-            current_estimate.pose = cameraPose * constants::Cameras[id_].RobotPoseInCamera;
-            current_estimate.err_translation = 1.0; // ToDo <---------------------------------------------------------------------
-            current_estimate.err_rotation = 1.0;
-            current_estimate.timestamp = ts;
-
-/*        apriltag_detection_info_t info;
-        info.tagsize = constants::tag_size; 
-        info.fx = constants::Cameras[id_].fx;
-        info.fy = constants::Cameras[id_].fy;
-        info.cx = constants::Cameras[id_].cx;
-        info.cy = constants::Cameras[id_].cy;
-
-        for (int i = 0; i < zarray_size(detections); i++) {
-            apriltag_detection_t *det;
-            zarray_get(detections, i, &det);
-
-            if (det->id < 1 || det->id > 32) continue;
-
-            info.det = det;
-            apriltag_pose_t pose;
-            double err = estimate_tag_pose(&info, &pose);
-
-            Eigen::Matrix4d tagPoseInCamera = poseAprilTagToEigen(pose);
-            //std::cout << tagPoseInCamera << std::endl;
-            Eigen::Matrix4d cameraPoseInTag = tagPoseInCamera.inverse();
-            Eigen::Matrix4d robotPoseInGlobal = constants::AprilTagPosesInGlobal[det->id - 1] * cameraPoseInTag * constants::Cameras[id_].RobotPoseInCamera;
-
-            double range = std::sqrt(tagPoseInCamera(0, 3)*tagPoseInCamera(0, 3)
-                                     + tagPoseInCamera(1, 3)*tagPoseInCamera(1, 3)
-                                     + tagPoseInCamera(2, 3)*tagPoseInCamera(2, 3));
-
-            current_estimate.err_translation = range; // Note apriltag_pose_t err measurements are to variable to be useful. Use static proportionality const.
-            current_estimate.err_rotation = 1.0;
-            current_estimate.pose = robotPoseInGlobal;
-            current_estimate.timestamp = ts;*/
-
-            poseEstimates.push_back(current_estimate);
             
-            std::lock_guard<std::mutex> lock(output_mutex);
-            //DEBUG print
-            std::cout << "@ time t = " << static_cast<int64_t>(current_estimate.timestamp.value_or(0)) << ", cam " << id_ /*<< " | Tag " << det->id*/ << " detected Global Pose:\n" << current_estimate.pose << "\n";
+            cv::Mat rvec;
+            cv::Mat tvec;
+            cv::Mat inliers;
+            
+            bool successfulPnP = cv::solvePnPRansac(object_pts,
+                                                    image_pts,
+                                                    constants::Cameras[id_].intrinsics,
+                                                    constants::Cameras[id_].distortion_coeff,
+                                                    rvec,
+                                                    tvec,
+                                                    false,             // useExtrinsicGuess <------------ Coulb be true with an estimation of current pose as just the last frame. Try if needed for time optimization.
+                                                    100,               // iterationsCount
+                                                    8.0,              // reprojectionError (threshold to consider a point an inlier)
+                                                    0.99,              // confidence
+                                                    inliers,
+                                                    cv::SOLVEPNP_ITERATIVE);
 
-            //std::cout << "Range: " << range << std::endl;
-            //std::cout << "Range: " << range << "\n \n";
+            if (successfulPnP) {
+                Eigen::Matrix4d cameraPose = Eigen::Matrix4d::Identity();
+
+                // Map the 3x3 rotation matrix
+                Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>> R(rvec.ptr<double>());
+                cameraPose.block<3, 3>(0, 0) = R;
+
+                // Map the 3x1 translation vector (double to float)
+                Eigen::Map<Eigen::Matrix<double, 3, 1>> t(tvec.ptr<double>());
+                cameraPose.block<3, 1>(0, 3) = t;
+
+                current_estimate.pose = cameraPose * constants::Cameras[id_].RobotPoseInCamera;
+                current_estimate.err_translation = 1.0; // ToDo <---------------------------------------------------------------------
+                current_estimate.err_rotation = 1.0;
+                current_estimate.timestamp = ts;
+
+                poseEstimates.push_back(current_estimate);
+                
+                std::lock_guard<std::mutex> lock(output_mutex);
+
+                std::cout << "@ time t = " << static_cast<int64_t>(current_estimate.timestamp.value_or(0)) << ", cam " << id_ /*<< " | Tag " << det->id*/ << " detected Global Pose:\n" << current_estimate.pose << "\n";
+
+        }
         }
         apriltag_detections_destroy(detections);
 
