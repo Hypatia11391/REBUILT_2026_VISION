@@ -212,9 +212,8 @@ private: // <--------------------------------------------------------------- ToD
                 std::lock_guard<std::mutex> lock(output_mutex);
 
                 std::cout << "@ time t = " << static_cast<int64_t>(current_estimate.timestamp.value_or(0)) << ", cam " << id_ /*<< " | Tag " << det->id*/ << " detected Global Pose:\n" << current_estimate.pose << "\n";
+        }}
 
-        }
-        }
         apriltag_detections_destroy(detections);
 
         return poseEstimates;
