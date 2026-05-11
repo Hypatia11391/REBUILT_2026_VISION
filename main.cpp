@@ -159,22 +159,27 @@ private: // <--------------------------------------------------------------- ToD
         // If tags are detected compute the pose
         // See https://github.com/personalrobotics/apriltags/blob/master/src/apriltags.cpp for relevant example in apriltag source code.
         if (zarray_size(detections)) {
-            std::vector<cv::Point3f> object_pts; // <------------- Should be double?
+            std::vector<cv::Point3d> object_pts; // <------------- Should be double?
             std::vector<cv::Point2f> image_pts;
-
-            for (int i; i < zarray_size(detections); i++) {
+            //std::cout << "array size" << zarray_size(detections) << std::endl;
+            for (int i = 0; i < zarray_size(detections); i++) {
                 apriltag_detection_t *det;
                 zarray_get(detections, i, &det);
 
+		//std::cout << "det id" << det->id << std::endl;
+
                 if (det->id < 1 || det->id > 32) continue;
 
-                for (int corner; corner < 4; corner++) {
-                    object_pts.push_back(getObjPoint(det->id, corner));
+                for (int corner = 0; corner < 4; corner++) {
+		    cv::Point3d new_obj_point = getObjPoint(det->id, corner);
+                    object_pts.push_back(new_obj_point);
                     image_pts.push_back(cv::Point2f(det->p[corner][0], det->p[corner][1]));// <------------- Should be double? Static cast?
                 }
             }
+            //std::cout << "Obj points" << object_pts.size() << std::endl;
+	    //std::cout << "Im points" << image_pts.size() << std::endl;
             
-            cv::Mat rvec;
+	    cv::Mat rvec;
             cv::Mat tvec;
             cv::Mat inliers;
             
