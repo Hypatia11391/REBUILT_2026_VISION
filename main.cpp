@@ -171,7 +171,7 @@ private: // <--------------------------------------------------------------- ToD
                 if (det->id < 1 || det->id > 32) continue;
 
                 for (int corner = 0; corner < 4; corner++) {
-		    cv::Point3d new_obj_point = getObjPoint(det->id, corner);
+		            cv::Point3d new_obj_point = getObjPoint(det->id, corner);
                     object_pts.push_back(new_obj_point);
                     image_pts.push_back(cv::Point2f(det->p[corner][0], det->p[corner][1]));// <------------- Should be double? Static cast?
                 }
@@ -179,7 +179,7 @@ private: // <--------------------------------------------------------------- ToD
             //std::cout << "Obj points" << object_pts.size() << std::endl;
 	    //std::cout << "Im points" << image_pts.size() << std::endl;
             
-	    cv::Mat rvec;
+	        cv::Mat rvec;
             cv::Mat tvec;
             cv::Mat inliers;
             
