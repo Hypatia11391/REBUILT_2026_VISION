@@ -3,5 +3,6 @@ build.sh
 build/
 opencv/
 eigen3/
+calibration/videos_old/
 logs/
 Test/
