@@ -7,7 +7,7 @@ ap = argparse.ArgumentParser()
 ap.add_argument("-i", "--images", required = True, help = "Path to the images directory")
 args = ap.parse_args()
 
-path = args.images
+path = f"{args.images}*.jpg"
 
 # termination criteria
 criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
