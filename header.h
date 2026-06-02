@@ -7,7 +7,7 @@ namespace constants {
     // Define a datatype to hold camera info
     struct CameraInfo {
         cv::Matx33d intrinsics;
-        cv::Vec4d distortion_coeff;
+        cv::Vec5d distortion_coeff;
         Eigen::Matrix4d RobotPoseInCamera;
     };
 
