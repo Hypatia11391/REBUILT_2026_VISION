@@ -200,7 +200,10 @@ private: // <--------------------------------------------------------------- ToD
                 Eigen::Matrix4d cameraPose = Eigen::Matrix4d::Identity();
 
                 // Map the 3x3 rotation matrix
-                Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>> R(rvec.ptr<double>());
+                cv::Mat rotMat;
+                cv::Rodrigues(rvec, rotMat);
+                
+                Eigen::Map<Eigen::Matrix<double, 3, 3, Eigen::RowMajor>> R(rotMat.ptr<double>());
                 cameraPose.block<3, 3>(0, 0) = R;
 
                 // Map the 3x1 translation vector (double to float)
