@@ -136,10 +136,10 @@ private: // <--------------------------------------------------------------- ToD
             Eigen::Matrix4d transformToGlobal = constants::AprilTagPosesInGlobal[id-1];//.inverse();
 
             std::array<Eigen::Vector3d, 4> objPointChoices;
-            objPointChoices[0] = tagRad*Eigen::Vector3d(-1.0, 1.0, 0.0);
-            objPointChoices[1] = tagRad*Eigen::Vector3d(1.0, 1.0, 0.0);
-            objPointChoices[2] = tagRad*Eigen::Vector3d(1.0, -1.0, 0.0);
-            objPointChoices[3] = tagRad*Eigen::Vector3d(-1.0, -1.0, 0.0);
+            objPointChoices[0] = tagRad*Eigen::Vector3d(-1.0, -1.0, 0.0);
+            objPointChoices[1] = tagRad*Eigen::Vector3d(1.0, -1.0, 0.0);
+            objPointChoices[2] = tagRad*Eigen::Vector3d(1.0, 1.0, 0.0);
+            objPointChoices[3] = tagRad*Eigen::Vector3d(-1.0, 1.0, 0.0);
 
 	    Eigen::Vector4d  homogPoint;
 	    homogPoint <<  objPointChoices[corner_num], 1.0;
@@ -210,7 +210,7 @@ private: // <--------------------------------------------------------------- ToD
                 Eigen::Map<Eigen::Matrix<double, 3, 1>> t(tvec.ptr<double>());
                 cameraPose.block<3, 1>(0, 3) = t;
 
-                current_estimate.pose = cameraPose.inverse() * constants::Cameras[id_].RobotPoseInCamera;
+                current_estimate.pose = cameraPose * constants::Cameras[id_].RobotPoseInCamera.inverse();
                 current_estimate.err_translation = 1.0; // ToDo <---------------------------------------------------------------------
                 current_estimate.err_rotation = 1.0;
                 current_estimate.timestamp = ts;
