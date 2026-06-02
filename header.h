@@ -7,7 +7,7 @@ namespace constants {
     // Define a datatype to hold camera info
     struct CameraInfo {
         cv::Matx33d intrinsics;
-        cv::Vec5d distortion_coeff;
+        std::array<double, 5> distortion_coeff;
         Eigen::Matrix4d RobotPoseInCamera;
     };
 
@@ -30,7 +30,7 @@ namespace constants {
                     0.0, 0.0, 1.0),
 
 	// Distortion vector
-        cv::Vec4d(-0.43776605, 0.21198789, 0.00120667, 0.00549393, -0.0569261), // <---------- PLACEHOLDER
+        {-0.43776605, 0.21198789, 0.00120667, 0.00549393, -0.0569261), // <---------- PLACEHOLDER
 
 	// Pose matrix
         (Eigen::Matrix4d() << 0,0,-1, 0.282, 
@@ -50,7 +50,7 @@ namespace constants {
                     0, 0, 1),
 	// Distortion vector
 
-        cv::Vec4d(0.0, 0.0, 0.0, 0.0), // <---------- PLACEHOLDER
+        {0.0, 0.0, 0.0, 0.0}, // <---------- PLACEHOLDER
 
 	// Pose matrix
         (Eigen::Matrix4d() << 0,0,1, -0.07,
