@@ -136,10 +136,10 @@ private: // <--------------------------------------------------------------- ToD
             Eigen::Matrix4d transformToGlobal = constants::AprilTagPosesInGlobal[id-1].inverse();
 
             std::array<Eigen::Vector3d, 4> objPointChoices;
-            objPointChoices[0] = tagRad*Eigen::Vector3d(-1.0, 1.0, 0.0);
-            objPointChoices[1] = tagRad*Eigen::Vector3d(1.0, 1.0, 0.0);
-            objPointChoices[2] = tagRad*Eigen::Vector3d(1.0, -1.0, 0.0);
-            objPointChoices[3] = tagRad*Eigen::Vector3d(-1.0, -1.0, 0.0);
+            objPointChoices[0] = tagRad*Eigen::Vector3d(1.0, -1.0, 0.0);
+            objPointChoices[1] = tagRad*Eigen::Vector3d(-1.0, -1.0, 0.0);
+            objPointChoices[2] = tagRad*Eigen::Vector3d(-1.0, 1.0, 0.0);
+            objPointChoices[3] = tagRad*Eigen::Vector3d(1.0, 1.0, 0.0);
 
 	    Eigen::Vector4d  homogPoint;
 	    homogPoint <<  objPointChoices[corner_num], 1.0;
