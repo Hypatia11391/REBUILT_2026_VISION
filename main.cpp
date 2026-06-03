@@ -210,7 +210,7 @@ private: // <--------------------------------------------------------------- ToD
                 Eigen::Map<Eigen::Matrix<double, 3, 1>> t(tvec.ptr<double>());
                 cameraPose.block<3, 1>(0, 3) = t;
 
-                current_estimate.pose = cameraPose.inverse() * constants::Cameras[id_].RobotPoseInCamera;
+                current_estimate.pose = cameraPose.inverse() * constants::Cameras[id_].RobotPoseInCamera.inverse();
                 current_estimate.err_translation = 1.0; // ToDo <---------------------------------------------------------------------
                 current_estimate.err_rotation = 1.0;
                 current_estimate.timestamp = ts;
